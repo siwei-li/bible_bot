@@ -4,9 +4,11 @@ from typing import Dict, Any
 from dotenv import load_dotenv
 from pywa_async import WhatsApp
 from openai import OpenAI
-from fastapi import FastAPI  # Replace Flask
+from fastapi import FastAPI, Request
+from fastapi.responses import PlainTextResponse
 from supabase import create_client, Client
 from datetime import datetime
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
@@ -43,15 +45,58 @@ if not client.api_key:
 
 
 fastapi_app = FastAPI()
+
+NGROK_URL = os.getenv("NGROK_URL", "http://localhost:5017")
+# Configure CORS to allow ngrok domains
+fastapi_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://*.ngrok.io",
+        "https://*.ngrok-free.app", 
+        "http://localhost:5017",
+        NGROK_URL
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@fastapi_app.get("/status")
+def status():
+    return {"message": "FastAPI app running"}
+
+@fastapi_app.get("/webhook-url")
+def get_webhook_url():
+    return {"webhook_url": f"{NGROK_URL}/webhook"}
+
+# Fix the webhook verification endpoint
+@fastapi_app.get("/webhook")
+def verify_webhook(request: Request):
+    """Handle WhatsApp webhook verification"""
+    hub_mode = request.query_params.get("hub.mode")
+    hub_challenge = request.query_params.get("hub.challenge")
+    hub_verify_token = request.query_params.get("hub.verify_token")
+    
+    print(f"Webhook verification: mode={hub_mode}, challenge={hub_challenge}, token={hub_verify_token}")
+    
+    if (hub_mode == "subscribe" and 
+        hub_verify_token == os.getenv('WHATSAPP_VERIFY_TOKEN')):
+        # Return ONLY the challenge number as plain text
+        return PlainTextResponse(content=str(hub_challenge))
+    else:
+        return PlainTextResponse(content="Forbidden", status_code=403)
+
+# Initialize WhatsApp client without automatic callback registration for now
 wa = WhatsApp(
     phone_id=os.getenv('WHATSAPP_PHONE_ID'),
     token=os.getenv('WHATSAPP_TOKEN'),
     server=fastapi_app,
     verify_token=os.getenv('WHATSAPP_VERIFY_TOKEN'),
-    callback_url=os.getenv('WHATSAPP_CALLBACK_URL'),
-    app_id=int(os.getenv('WHATSAPP_APP_ID')),
-    app_secret=os.getenv('WHATSAPP_APP_SECRET'),
-    webhook_challenge_delay=10
+    webhook_challenge_delay=60,  # Increase delay
+    # Temporarily remove these to avoid auto-registration issues
+    # callback_url=os.getenv('WHATSAPP_CALLBACK_URL'),
+    # app_id=int(os.getenv('WHATSAPP_APP_ID')),
+    # app_secret=os.getenv('WHATSAPP_APP_SECRET'),
 )
 
 async def get_user_progress(user_id: str):
@@ -139,7 +184,6 @@ async def suggest_next_question(user_id: str, domain: str, response: str) -> str
             score=result['score']
         )
         
-        # Update progress in database
         await update_user_progress(user_id, answered_id=result['next_id'])
         
         next_q = next(q for q in remaining_qs if q['id'] == result['next_id'])
@@ -157,7 +201,6 @@ async def handle_message(wa_client, msg):
         user_id = msg.from_user.wa_id
         text = msg.text.lower().strip()
         
-        # Get user progress from database instead of in-memory dict
         progress = await get_user_progress(user_id)
         
         if text == 'start':

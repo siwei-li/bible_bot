@@ -3,7 +3,16 @@ services:
   whatsapp-bot:
     build: .
     ports:
-      - "8000:8000"
+      - "5017:5017"
     env_file:
       - .env
+    environment:
+      # Override Supabase URL to use host network
+      - SUPABASE_URL=http://host.docker.internal:54321
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
