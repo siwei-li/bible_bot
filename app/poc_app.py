@@ -1,6 +1,5 @@
 import os
 import json
-from typing import Dict, Any
 from dotenv import load_dotenv
 from pywa_async import WhatsApp
 from openai import OpenAI
@@ -16,6 +15,7 @@ load_dotenv()
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_ANON_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
+
 
 # Load questions from Supabase
 def load_questions_from_supabase():
@@ -34,6 +34,7 @@ def load_questions_from_supabase():
     except Exception as e:
         print(f"Error loading questions: {e}")
         return {'domains': {}}
+
 
 QUESTIONS = load_questions_from_supabase()
 
@@ -61,13 +62,16 @@ fastapi_app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @fastapi_app.get("/status")
 def status():
     return {"message": "FastAPI app running"}
 
+
 @fastapi_app.get("/webhook-url")
 def get_webhook_url():
     return {"webhook_url": f"{NGROK_URL}/webhook"}
+
 
 # Fix the webhook verification endpoint
 @fastapi_app.get("/webhook")
@@ -76,15 +80,20 @@ def verify_webhook(request: Request):
     hub_mode = request.query_params.get("hub.mode")
     hub_challenge = request.query_params.get("hub.challenge")
     hub_verify_token = request.query_params.get("hub.verify_token")
-    
-    print(f"Webhook verification: mode={hub_mode}, challenge={hub_challenge}, token={hub_verify_token}")
-    
-    if (hub_mode == "subscribe" and 
-        hub_verify_token == os.getenv('WHATSAPP_VERIFY_TOKEN')):
-        # Return ONLY the challenge number as plain text
+
+    print(
+        f"Webhook verification: mode={hub_mode}, "
+        f"challenge={hub_challenge}, token={hub_verify_token}"
+    )
+
+    if (
+        hub_mode == "subscribe"
+        and hub_verify_token == os.getenv('WHATSAPP_VERIFY_TOKEN')
+    ):
         return PlainTextResponse(content=str(hub_challenge))
     else:
         return PlainTextResponse(content="Forbidden", status_code=403)
+
 
 # Initialize WhatsApp client without automatic callback registration for now
 wa = WhatsApp(
@@ -99,10 +108,16 @@ wa = WhatsApp(
     # app_secret=os.getenv('WHATSAPP_APP_SECRET'),
 )
 
+
 async def get_user_progress(user_id: str):
     """Get user progress from database"""
     try:
-        result = supabase.table('user_progress').select('*').eq('user_id', user_id).execute()
+        result = (
+            supabase.table('user_progress')
+            .select('*')
+            .eq('user_id', user_id)
+            .execute()
+        )
         if result.data:
             return result.data[0]
         else:
@@ -119,7 +134,12 @@ async def get_user_progress(user_id: str):
         print(f"Database error: {e}")
         return {'user_id': user_id, 'domain': None, 'answered_questions': []}
 
-async def update_user_progress(user_id: str, domain: str = None, answered_id: int = None):
+
+async def update_user_progress(
+    user_id: str,
+    domain: str = None,
+    answered_id: int = None
+):
     """Update user progress in database"""
     try:
         current_progress = await get_user_progress(user_id)
@@ -133,11 +153,23 @@ async def update_user_progress(user_id: str, domain: str = None, answered_id: in
                 answered_list.append(answered_id)
             updates['answered_questions'] = answered_list
         
-        supabase.table('user_progress').update(updates).eq('user_id', user_id).execute()
+        (
+            supabase.table('user_progress')
+            .update(updates)
+            .eq('user_id', user_id)
+            .execute()
+        )
     except Exception as e:
         print(f"Error updating progress: {e}")
 
-async def log_response(user_id: str, question_id: int, user_answer: str, validation: str, score: int):
+
+async def log_response(
+    user_id: str,
+    question_id: int,
+    user_answer: str,
+    validation: str,
+    score: int
+):
     """Log user responses for Fieldworks analysis"""
     try:
         response_data = {
@@ -151,6 +183,7 @@ async def log_response(user_id: str, question_id: int, user_answer: str, validat
         supabase.table('user_responses').insert(response_data).execute()
     except Exception as e:
         print(f"Error logging response: {e}")
+
 
 async def suggest_next_question(user_id: str, domain: str, response: str) -> str:
     """Use LLM to suggest and validate next question."""
