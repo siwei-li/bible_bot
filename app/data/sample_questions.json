@@ -1,0 +1,10 @@
+{
+    "domains": {
+      "kinship": {
+        "questions": [
+          {"id": 1, "text": "What do you call your mother's brother?", "type": "open"},
+          {"id": 2, "text": "What is the word for 'sister'?", "type": "open"}
+        ]
+      }
+    }
+  }

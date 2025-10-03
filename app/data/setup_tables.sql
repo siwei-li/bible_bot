@@ -19,6 +19,17 @@ CREATE TABLE user_responses (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create user_chat_sessions table to map WhatsApp users to Gloo AI chat sessions
+CREATE TABLE user_chat_sessions (
+    id SERIAL PRIMARY KEY,
+    whatsapp_id TEXT UNIQUE NOT NULL,
+    gloo_chat_id TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+-- Create index for faster lookups
+CREATE INDEX idx_user_chat_sessions_whatsapp_id ON user_chat_sessions(whatsapp_id);
+
 -- Create questions table (optional, for better data management)
 CREATE TABLE questions (
     id INTEGER PRIMARY KEY,

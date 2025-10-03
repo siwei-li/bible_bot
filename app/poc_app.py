@@ -6,12 +6,16 @@ from openai import OpenAI
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 from supabase import create_client, Client
-from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
+
+from data.supabase_client import (
+    store_response,
+    get_user_progress,
+    update_user_progress,
+)
 
 load_dotenv()
 
-# Initialize Supabase client
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_ANON_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
@@ -95,7 +99,6 @@ def verify_webhook(request: Request):
         return PlainTextResponse(content="Forbidden", status_code=403)
 
 
-# Initialize WhatsApp client without automatic callback registration for now
 wa = WhatsApp(
     phone_id=os.getenv('WHATSAPP_PHONE_ID'),
     token=os.getenv('WHATSAPP_TOKEN'),
@@ -107,82 +110,6 @@ wa = WhatsApp(
     # app_id=int(os.getenv('WHATSAPP_APP_ID')),
     # app_secret=os.getenv('WHATSAPP_APP_SECRET'),
 )
-
-
-async def get_user_progress(user_id: str):
-    """Get user progress from database"""
-    try:
-        result = (
-            supabase.table('user_progress')
-            .select('*')
-            .eq('user_id', user_id)
-            .execute()
-        )
-        if result.data:
-            return result.data[0]
-        else:
-            # Create new user progress
-            new_progress = {
-                'user_id': user_id,
-                'domain': None,
-                'answered_questions': [],
-                'created_at': datetime.utcnow().isoformat()
-            }
-            supabase.table('user_progress').insert(new_progress).execute()
-            return new_progress
-    except Exception as e:
-        print(f"Database error: {e}")
-        return {'user_id': user_id, 'domain': None, 'answered_questions': []}
-
-
-async def update_user_progress(
-    user_id: str,
-    domain: str = None,
-    answered_id: int = None
-):
-    """Update user progress in database"""
-    try:
-        current_progress = await get_user_progress(user_id)
-        
-        updates = {'updated_at': datetime.utcnow().isoformat()}
-        if domain:
-            updates['domain'] = domain
-        if answered_id:
-            answered_list = current_progress.get('answered_questions', [])
-            if answered_id not in answered_list:
-                answered_list.append(answered_id)
-            updates['answered_questions'] = answered_list
-        
-        (
-            supabase.table('user_progress')
-            .update(updates)
-            .eq('user_id', user_id)
-            .execute()
-        )
-    except Exception as e:
-        print(f"Error updating progress: {e}")
-
-
-async def log_response(
-    user_id: str,
-    question_id: int,
-    user_answer: str,
-    validation: str,
-    score: int
-):
-    """Log user responses for Fieldworks analysis"""
-    try:
-        response_data = {
-            'user_id': user_id,
-            'question_id': question_id,
-            'user_answer': user_answer,
-            'validation': validation,
-            'score': score,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        supabase.table('user_responses').insert(response_data).execute()
-    except Exception as e:
-        print(f"Error logging response: {e}")
 
 
 async def suggest_next_question(user_id: str, domain: str, response: str) -> str:
@@ -209,7 +136,7 @@ async def suggest_next_question(user_id: str, domain: str, response: str) -> str
         result = json.loads(response_llm.choices[0].message.content)
         
         # Log the response for analysis
-        await log_response(
+        await store_response(
             user_id=user_id,
             question_id=remaining_qs[0]['id'],
             user_answer=response,
