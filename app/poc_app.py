@@ -13,8 +13,10 @@ from data.supabase_client import (
     get_user_progress,
     update_user_progress,
 )
+from data.audio import AudioHandler
 
 load_dotenv()
+WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN')
 
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_ANON_KEY")
@@ -41,12 +43,6 @@ def load_questions_from_supabase():
 
 
 QUESTIONS = load_questions_from_supabase()
-
-
-# LLM Client setup #TODO - use Gloo API
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-if not client.api_key:
-    raise ValueError("Set OPENAI_API_KEY in .env file")
 
 
 fastapi_app = FastAPI()
@@ -77,7 +73,6 @@ def get_webhook_url():
     return {"webhook_url": f"{NGROK_URL}/webhook"}
 
 
-# Fix the webhook verification endpoint
 @fastapi_app.get("/webhook")
 def verify_webhook(request: Request):
     """Handle WhatsApp webhook verification"""
@@ -101,7 +96,7 @@ def verify_webhook(request: Request):
 
 wa = WhatsApp(
     phone_id=os.getenv('WHATSAPP_PHONE_ID'),
-    token=os.getenv('WHATSAPP_TOKEN'),
+    token=WHATSAPP_TOKEN,
     server=fastapi_app,
     verify_token=os.getenv('WHATSAPP_VERIFY_TOKEN'),
     webhook_challenge_delay=60,  # Increase delay
@@ -155,54 +150,118 @@ async def suggest_next_question(user_id: str, domain: str, response: str) -> str
         return f"Next: {next_q['text']}"
 
 
+openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+if not openai_client.api_key:
+    raise ValueError("Set OPENAI_API_KEY in .env file")
+
+audio_handler = AudioHandler(
+    whatsapp_token=WHATSAPP_TOKEN,
+    openai_client=openai_client
+)
+
+
 @wa.on_message()
 async def handle_message(wa_client, msg):
     try:
         user_id = msg.from_user.wa_id
-        text = msg.text.lower().strip()
-        
-        progress = await get_user_progress(user_id)
-        
-        if text == 'start':
+
+        # Handle audio messages
+        if msg.type == "audio":
             await wa_client.send_message(
                 to=user_id,
-                text="Hi! Domains: kinship. Reply 'start kinship' to begin."
+                text="🎵 Processing your audio message..."
             )
-            return
-        
-        if text.startswith('start '):
-            domain = text.split(' ', 2)[1]
-            if domain not in QUESTIONS['domains']:
+            
+            audio_result = await audio_handler.process_audio_message(
+                media_id=msg.audio.id,
+                user_id=user_id
+            )
+            
+            if "error" in audio_result:
                 await wa_client.send_message(
                     to=user_id,
-                    text=f"Unknown domain. Available: {list(QUESTIONS['domains'].keys())}"
+                    text="Sorry, I couldn't process your audio message. Please try again."
                 )
                 return
-            await update_user_progress(user_id, domain=domain)
-            first_q = QUESTIONS['domains'][domain]['questions'][0]
-            await update_user_progress(user_id, answered_id=first_q['id'])
+            
+            # Handle skipped transcription
+            if audio_result.get("skipped", False):
+                await wa_client.send_message(
+                    to=user_id,
+                    text=(
+                        f"🎵 Audio received! Thank you <3"
+                        "Language detected: {audio_result.get('language', 'unknown')}\n\n" #TODO
+                    )
+                )
+                return
+            
+            # Handle successful transcription
+            text = audio_result["transcription"]
+            confidence = audio_result["confidence"]
+
+            confidence_emoji = "✅" if confidence > 0.8 else "⚠️" if confidence > 0.5 else "❌"
+
             await wa_client.send_message(
                 to=user_id,
-                text=f"Starting {domain} domain.\n{first_q['text']}"
+                text=(
+                    f"📝 I heard: \"{text}\"\n"
+                    f"{confidence_emoji} Confidence: {confidence:.1%}\n\n"
+                    "Is this correct? If you want to edit, tap 'Edit' and send the corrected text." 
+                ),
+                buttons=[
+                    {"type": "reply", "reply": {"id": "correct", "title": "Correct ✅"}},
+                    {"type": "reply", "reply": {"id": "edit", "title": "Edit ✏️"}},
+                    {"type": "reply", "reply": {"id": "continue", "title": "Continue ➡️"}}
+                ]
             )
             return
-        
-        if progress['domain'] is None:
-            await wa_client.send_message(
-                to=user_id,
-                text="Say 'start kinship' to begin."
-            )
-            return
-        
-        domain = progress['domain']
-        next_msg = await suggest_next_question(user_id, domain, text)  # Await async LLM
-        await wa_client.send_message(to=user_id, text=next_msg)
-        
-        if len(progress['answered_questions']) % 2 == 0:
-            await wa_client.send_message(
-                to=user_id,
-                text="Bonus: Rate this sample response (1-5): 'Uncle is 'mama kaka'."
-            )
+            
+        else:
+            # Handle text messages
+            text = msg.text.lower().strip()
+            
+            progress = await get_user_progress(user_id)
+            
+            if text == 'start':
+                await wa_client.send_message(
+                    to=user_id,
+                    text="Hi! Domains: kinship. Reply 'start kinship' to begin."
+                )
+                return
+            
+            if text.startswith('start '):
+                domain = text.split(' ', 2)[1]
+                if domain not in QUESTIONS['domains']:
+                    await wa_client.send_message(
+                        to=user_id,
+                        text=f"Unknown domain. Available: {list(QUESTIONS['domains'].keys())}"
+                    )
+                    return
+                await update_user_progress(user_id, domain=domain)
+                first_q = QUESTIONS['domains'][domain]['questions'][0]
+                await update_user_progress(user_id, answered_id=first_q['id'])
+                await wa_client.send_message(
+                    to=user_id,
+                    text=f"Starting {domain} domain.\n{first_q['text']}"
+                )
+                return
+            
+            if progress['domain'] is None:
+                await wa_client.send_message(
+                    to=user_id,
+                    text="Say 'start kinship' to begin."
+                )
+                return
+            
+            domain = progress['domain']
+            next_msg = await suggest_next_question(user_id, domain, text)  # Await async LLM
+            await wa_client.send_message(to=user_id, text=next_msg)
+            
+            if len(progress['answered_questions']) % 2 == 0:
+                await wa_client.send_message(
+                    to=user_id,
+                    text="Bonus: Rate this sample response (1-5): 'Uncle is 'mama kaka'."
+                )
             
     except Exception as e:
         print(f"Error in handle_message: {e}")

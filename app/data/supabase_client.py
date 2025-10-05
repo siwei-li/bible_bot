@@ -21,9 +21,10 @@ async def store_response(
     question_id: int,
     user_answer: str,
     validation: str,
-    score: int
+    score: int,
+    message_type: str = "text"
 ):
-    """Store user responses"""
+    """Store user response with message type"""
     try:
         response_data = {
             'user_id': user_id,
@@ -31,11 +32,14 @@ async def store_response(
             'user_answer': user_answer,
             'validation': validation,
             'score': score,
+            'message_type': message_type,
             'timestamp': datetime.utcnow().isoformat()
         }
-        supabase.table('user_responses').insert(response_data).execute()
+        result = supabaseClient.table('user_responses').insert(response_data).execute()
+        return result.data[0] if result.data else None
     except Exception as e:
-        print(f"Error logging response: {e}")
+        print(f"Error storing response: {e}")
+        return None
 
 
 async def get_user_progress(user_id: str):

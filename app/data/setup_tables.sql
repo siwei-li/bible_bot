@@ -8,7 +8,7 @@ CREATE TABLE user_progress (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create user_responses table for Fieldworks analysis
+-- Create user_responses table
 CREATE TABLE user_responses (
     id SERIAL PRIMARY KEY,
     user_id TEXT NOT NULL,
@@ -18,6 +18,31 @@ CREATE TABLE user_responses (
     score INTEGER,
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+-- Add audio message handling to user_responses
+ALTER TABLE user_responses ADD COLUMN IF NOT EXISTS message_type TEXT DEFAULT 'text';
+ALTER TABLE user_responses ADD COLUMN IF NOT EXISTS audio_file_path TEXT;
+ALTER TABLE user_responses ADD COLUMN IF NOT EXISTS transcription TEXT;
+ALTER TABLE user_responses ADD COLUMN IF NOT EXISTS transcription_confidence FLOAT;
+
+-- Create audio_files table for metadata
+CREATE TABLE audio_files (
+    id SERIAL PRIMARY KEY,
+    whatsapp_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    file_id TEXT NOT NULL, -- WhatsApp media ID
+    file_path TEXT, -- Local storage path
+    file_size INTEGER,
+    mime_type TEXT,
+    duration_seconds INTEGER,
+    transcription TEXT,
+    transcription_confidence FLOAT,
+    processed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Index for faster lookups
+CREATE INDEX idx_audio_files_whatsapp_id ON audio_files(whatsapp_id);
+CREATE INDEX idx_audio_files_user_id ON audio_files(user_id);
 
 -- Create user_chat_sessions table to map WhatsApp users to Gloo AI chat sessions
 CREATE TABLE user_chat_sessions (
@@ -30,7 +55,7 @@ CREATE TABLE user_chat_sessions (
 -- Create index for faster lookups
 CREATE INDEX idx_user_chat_sessions_whatsapp_id ON user_chat_sessions(whatsapp_id);
 
--- Create questions table (optional, for better data management)
+-- Create questions table
 CREATE TABLE questions (
     id INTEGER PRIMARY KEY,
     domain TEXT NOT NULL,
