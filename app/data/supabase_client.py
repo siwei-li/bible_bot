@@ -94,3 +94,42 @@ async def update_user_progress(
         )
     except Exception as e:
         print(f"Error updating progress: {e}")
+
+
+async def update_transcription_in_db(audio_id: int, corrected_text: str, validation_type: str):
+    """Update transcription in database when user corrects it"""
+    try:
+        # Update the audio_files table
+        supabaseClient.table("audio_files").update({
+            "transcription": corrected_text,
+            "transcription_confidence": 1.0,  # User correction = 100% confidence
+            "processed_at": "now()"
+        }).eq("id", audio_id).execute()
+        
+        print(f"Updated transcription for audio_id {audio_id}")
+        
+    except Exception as e:
+        print(f"Error updating transcription: {e}")
+
+
+#LATER - 
+def store_user_metadata(whatsapp_id: str, profile_name: str = None):
+    """Store additional user metadata"""
+    try:
+        # Get user profile info if available
+        user_data = {
+            'user_id': whatsapp_id,
+            'domain': 'whatsapp',
+            'answered_questions': []
+        }
+        
+        if profile_name:
+            user_data['profile_name'] = profile_name
+            
+        # Upsert user data
+        result = supabase.table('user_progress').upsert(user_data).execute()
+        return result.data
+        
+    except Exception as e:
+        print(f"Error storing user metadata: {e}")
+        return None
