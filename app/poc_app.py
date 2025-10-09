@@ -62,7 +62,6 @@ message_handlers = MessageHandlers(
 fastapi_app = FastAPI()
 
 NGROK_URL = os.getenv("NGROK_URL", "http://localhost:5017")
-# Configure CORS to allow ngrok domains
 fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -102,16 +101,14 @@ def verify_webhook(request: Request):
     else:
         return PlainTextResponse(content="Forbidden", status_code=403)
 
+# async def lifespan(app: FastAPI): #LATER - use lifespan for startup/shutdown tasks
 
 wa = WhatsApp(
     phone_id=os.getenv('WHATSAPP_PHONE_ID'),
     token=WHATSAPP_TOKEN,
     server=fastapi_app,
     verify_token=os.getenv('WHATSAPP_VERIFY_TOKEN'),
-    webhook_challenge_delay=60,  # Increase delay
-    # callback_url=os.getenv('WHATSAPP_CALLBACK_URL'),
-    # app_id=int(os.getenv('WHATSAPP_APP_ID')),
-    # app_secret=os.getenv('WHATSAPP_APP_SECRET'),
+    webhook_challenge_delay=60
 )
 
 @wa.on_callback_selection()  # No factory needed for simple string callback_data; add filters=filters.startswith('lang:') if you want to match only language callbacks

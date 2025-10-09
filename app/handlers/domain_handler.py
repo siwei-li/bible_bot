@@ -14,7 +14,7 @@ class DomainHandler:
         current_domain = session.get("domain")
         progress = await get_user_progress(user_id)
         
-        message = f"{prefix_message}\n\nAvailable domains:\nPick a domain to get started. (Enter '1', '2', '3', etc. to choose)\n\n"
+        message = f"{prefix_message}\nPick a domain to get started by entering '[domain]', like 'bible'.\n\n Available domains:\n\n"
 
         # Check if they have unanswered questions in current domain
         if current_domain:
@@ -29,11 +29,13 @@ class DomainHandler:
         available_domains = await self.questions_service.get_domains()
         
         options = []
+        # option_number = 1
         if has_remaining_in_current:
             options.append(f"• '{current_domain}' - Resume {current_domain} domain")
         for domain in available_domains:
             if domain != current_domain:
                 options.append(f"• '{domain}' - Start {domain} domain")
+        options.append("• 🤖 bot - Translate Bible verses (AI-suggested) and more")
         
         message += "\n".join(options)
         await wa_client.send_message(to=user_id, text=message)
@@ -53,11 +55,12 @@ class DomainHandler:
                 )
             )
             # Show available domains
-            await self.show_available_domains(wa_client, user_id)
+            await self.send_domain_list(wa_client, user_id)
             return
         
         # Check if it's a valid domain
         available_domains = await self.questions_service.get_domains()
+        available_domains.append('bot')  # Add 'bot' as a special domain
         if text.lower() in [d.lower() for d in available_domains]:
             # Find the actual domain name (case-sensitive)
             domain = next(d for d in available_domains if d.lower() == text.lower())
@@ -68,16 +71,16 @@ class DomainHandler:
                 to=user_id,
                 text=(
                     f"✅ You've selected the '{domain}' domain.\n\n"
-                    # f"Reply 'next' to get your first question."
+                    "Let's get started!"
                 )
             )
-
             question_handler = QuestionHandler(self.session_manager, self.questions_service)
             await question_handler.give_next_question(wa_client, user_id)
 
         else:
-            await self.show_available_domains(wa_client, user_id)
+            await self.send_domain_list(wa_client, user_id)
     
+    # Redundant - see send_domain_list
     async def show_available_domains(self, wa_client, user_id: str):
         """Show available domains to user with continue options"""
         domains = await self.questions_service.get_domains()

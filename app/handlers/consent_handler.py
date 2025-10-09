@@ -9,7 +9,7 @@ class ConsentHandler:
         self.session_manager = session_manager
         self.questions_service = questions_service
         self.language_options = [
-            {"code": "cn", "name": "Mandarin Chinese"},
+            {"code": "zh", "name": "Mandarin Chinese"},
              # African languages
             {"code": "ak", "name": "Akan"},
             {"code": "bm", "name": "Bambara"},
@@ -58,7 +58,7 @@ class ConsentHandler:
                         SectionRow(
                             title=d['name'],
                             callback_data=f'lang:{d["code"]}',
-                            description='For testing only (not a low-resource language)' if d['code']=='cn' else None,
+                            description='For testing only (not a low-resource language)' if d['code']=='zh' else None,
                         ) for d in self.language_options
                     ],
                 ),
@@ -82,7 +82,7 @@ class ConsentHandler:
                 user_id, 
                 prefix_message=f"✅ Thanks for picking {language_name}!\n"
             )
-            # await self.save_user_language(user_id, selected_language["code"], selected_language["name"]) #LATER - save to DB
+            await supabaseClient.store_user_language(user_id, selected_language)
             # await self.complete_onboarding(wa_client, user_id, selected_language["name"])
         else:
             await wa_client.send_message(
@@ -114,16 +114,17 @@ class ConsentHandler:
             #     text="Please reply 'yes' to participate or 'no' to decline."
             # )
             # pass
-    
-    # async def _store_user_consent(self, user_id: str, consented: bool):
-    #     """Store user consent in database"""
-    #     try:
-    #         supabaseClient.table("user_progress").upsert({
-    #             "user_id": user_id,
-    #             "domain": None,
-    #             "answered_questions": [],
-    #             "consented": consented,
-    #             "consent_date": "now()"
-    #         }, on_conflict="user_id").execute()
-    #     except Exception as e:
-    #         print(f"Error storing consent: {e}")
+
+    #LATER - 
+    async def _store_user_consent(self, user_id: str, consented: bool):
+        """Store user consent in database"""
+        try:
+            supabaseClient.table("user_progress").upsert({
+                "user_id": user_id,
+                "domain": None,
+                "answered_questions": [],
+                "consented": consented,
+                "consent_date": "now()"
+            }, on_conflict="user_id").execute()
+        except Exception as e:
+            print(f"Error storing consent: {e}")

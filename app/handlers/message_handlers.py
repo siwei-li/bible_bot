@@ -1,3 +1,4 @@
+import re
 from typing import TYPE_CHECKING
 from session.session_manager import SessionManager, UserState
 from data.supabase_client import store_response, update_user_progress
@@ -183,7 +184,11 @@ class MessageHandlers:
                         f"Moving on to the next question..."
                     )
                 )
-                score = self._extract_score_from_response(gloo_response) or 8
+                score = 8
+                match = re.search(r"score[:\s]*([0-9]{1,2})\s*/\s*10", gloo_response, re.IGNORECASE)
+                if match:
+                    score = int(match.group(1))
+
                 await self._store_final_answer(user_id, text, "ai_validated", score)
                 await self._ask_continue_or_break(wa_client, user_id)
 
