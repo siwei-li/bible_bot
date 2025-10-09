@@ -9,4 +9,7 @@ Expose ngrok: ngrok http 5017
 
 ---
 TODO list:
+
+- fix: progress update count of answered questions
+later:
 - info for each of the domains

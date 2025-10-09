@@ -1,10 +1,12 @@
 from session.session_manager import SessionManager, UserState
+from handlers.domain_handler import DomainHandler
 from data.supabase_client import supabaseClient
 
 
 class ConsentHandler:
-    def __init__(self, session_manager: SessionManager):
+    def __init__(self, session_manager: SessionManager, questions_service):
         self.session_manager = session_manager
+        self.questions_service = questions_service
     
     async def send_welcome_message(self, wa_client, user_id: str):
         """Send welcome message and ask for consent"""
@@ -31,17 +33,13 @@ class ConsentHandler:
         """Handle user consent response"""
         if text.lower() in ['yes', 'y', 'agree', 'accept', 'ok']:
             # await self._store_user_consent(user_id, True)
-            
-            await wa_client.send_message(
-                to=user_id,
-                text=(
-                    "✅ Thank you for participating!\n\n"
-                    "Available domains: kinship\n\n" #FIXME - dynamic domains
-                    "Reply 'kinship' to start with kinship terms, or 'info' to learn more about the project."
-                )
+
+            domain_handler = DomainHandler(self.session_manager, self.questions_service)
+            await domain_handler.send_domain_list(
+                wa_client, 
+                user_id, 
+                prefix_message="✅ Thank you for participating!\n\nPick a domain to get started."
             )
-            self.session_manager.set_state(user_id, UserState.AWAITING_DOMAIN_SELECTION)
-            return True
             
         elif text.lower() in ['no', 'n', 'decline', 'refuse']:
             # await self._store_user_consent(user_id, False)

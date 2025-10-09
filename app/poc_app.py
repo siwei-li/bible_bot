@@ -48,7 +48,7 @@ audio_handler = AudioHandler(
 session_manager = SessionManager()
 questions_service = QuestionsService()
 question_handler = QuestionHandler(session_manager, questions_service)
-consent_handler = ConsentHandler(session_manager)
+consent_handler = ConsentHandler(session_manager, questions_service)
 domain_handler = DomainHandler(session_manager, questions_service)
 message_handlers = MessageHandlers(
     session_manager,

@@ -1,5 +1,5 @@
 import random
-from typing import Optional, List, Dict
+from typing import Optional, Dict
 from session.session_manager import SessionManager, UserState
 from services.questions_service import QuestionsService
 from data.supabase_client import get_user_progress
@@ -68,3 +68,5 @@ class QuestionHandler:
         if question_id:
             return await self.questions_service.get_question_by_id(question_id)
         return None
+
+    # create has_remaining_questions_in_current_domain() and get_available

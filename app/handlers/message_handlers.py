@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 from session.session_manager import SessionManager, UserState
 from data.supabase_client import store_response, update_user_progress
-from data.gloo_client import send_gloo_message_for_whatsapp_user
+from data.users import send_gloo_message_for_whatsapp_user
 
 
 if TYPE_CHECKING:
@@ -153,7 +153,7 @@ class MessageHandlers:
             )
             return
     
-        question_data = await self.questions_service.get_question_by_id(question_id)
+        question_data = await self.question_handler.get_current_question(question_id)
         question_text = question_data.get('text', 'Unknown question') if question_data else 'Unknown question'
         
         await wa_client.send_message(
@@ -166,8 +166,8 @@ class MessageHandlers:
                 f"Question: '{question_text}'\n"
                 f"Answer: '{text}'\n\n"
                 f"Please validate this answer for cultural and linguistic accuracy in relation to the question. "
-                f"Provide feedback and a cleaned version if needed, or respond 'valid' if it's good as-is. "
-                f"Also provide a score from 1-10 based on relevance, accuracy, and cultural appropriateness."
+                f"Provide short feedback or respond 'valid' if it's good as-is. "
+                f"Also provide a score from 1-10."
             )  
             gloo_response = await send_gloo_message_for_whatsapp_user(
                 whatsapp_id=user_id,
@@ -235,7 +235,7 @@ class MessageHandlers:
             validation_type = "user_edited"
             score = 5
             await wa_client.send_message(to=user_id, text=f"✏️ Updated to: \"{final_text}\"")
-        elif text.lower() == "accept":
+        elif text.lower() in ("accept", 'ac'):
             final_text = pending["validation_response"]
             validation_type = "original_text"
             score = 10
@@ -257,8 +257,8 @@ class MessageHandlers:
             text=(
                 f"✅ Response saved! Thank you.\n\n"
                 f"What would you like to do next?\n\n"
-                f"• Reply 'continue' for the next question\n"
-                f"• Reply 'break' to pause and resume later\n"
+                f"• Reply '[c]ontinue' for the next question\n"
+                f"• Reply '[b]reak' to pause and resume later\n"
                 f"• Reply 'done' to finish this session"
             )
         )
@@ -286,11 +286,11 @@ class MessageHandlers:
         """Handle user's decision to continue or break"""
         session = self.session_manager.get_session(user_id)
         
-        if text.lower() == 'continue':
-            await self.question_handler.give_next_question(self, user_id)
+        if text.lower() in ('continue', 'c'):
+            await self.question_handler.give_next_question(wa_client, user_id)
             
-        elif text.lower() == 'break':
-            self.session_manager.generate_break_word(user_id)
+        elif text.lower() in ('break', 'b'):
+            break_word = self.session_manager.generate_break_word(user_id)
             session["state"] = UserState.ON_BREAK
             
             await wa_client.send_message(
@@ -317,7 +317,7 @@ class MessageHandlers:
         else:
             await wa_client.send_message(
                 to=user_id,
-                text="Please reply 'continue', 'break', or 'done'."
+                text="Please reply '[c]ontinue', '[b]reak', or 'done'."
             )
 
     async def _handle_break_return(self, wa_client, user_id: str, text: str):
@@ -325,45 +325,16 @@ class MessageHandlers:
         session = self.session_manager.get_session(user_id)
         
         if text.lower() == session["break_word"].lower():
-            from data.supabase_client import get_user_progress
-            progress = await get_user_progress(user_id)
-            current_domain = session.get("domain")
-            
-            # Check if they have unanswered questions in current domain
-            if current_domain:
-                answered_ids = progress.get('answered_questions', [])
-                remaining_questions = await self.questions_service.get_unanswered_questions(
-                    current_domain, answered_ids
-                )
-                has_remaining_in_current = len(remaining_questions) > 0
-            else:
-                has_remaining_in_current = False
-            
-            available_domains = await self.questions_service.get_domains()
-            
             welcome_message = (
                 f"🎉 Welcome back!\n\n"
-                f"📊 Previous session: {session.get('questions_answered_this_session', 0)} questions\n\n"
-                f"What would you like to do?\n\n"
+                f"📊 Previous session: {session.get('questions_answered_this_session', 0)} questions\n\n" #FIXME - 
+                f"Continue your previous domain or select a new one.\n\n"
             )
-            
-            options = []
-            if has_remaining_in_current:
-                options.append(f"• 'continue {current_domain}' - Resume {current_domain} domain")
-            # Option to start new domains
-            for domain in available_domains:
-                if domain != current_domain:
-                    options.append(f"• '{domain}' - Start {domain} domain")
-            
-            # # Add info option
-            # options.append("• 'info' - Learn more about domains")
-            
-            welcome_message += "\n".join(options)
-            
-            await wa_client.send_message(to=user_id, text=welcome_message)
-            
-            # Set state to domain selection so they can choose
-            self.session_manager.set_state(user_id, self.session_manager.UserState.AWAITING_DOMAIN_SELECTION)
+            await self.domain_handler.send_domain_list(
+                wa_client,
+                user_id,
+                prefix_message=welcome_message
+            )
             
         # elif text.lower() == 'help':
         #     # Help for users who forgot their break word
