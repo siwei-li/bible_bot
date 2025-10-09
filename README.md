@@ -1,10 +1,10 @@
 # Bible translation WhatsApp chatbot
 
-Thanks to Joel Matthew's great [blog article](https://www.etenlab.org/post/bible-translation-and-whatsapp) at ETEN Labs, we decided to build WhatsApp bot to collect more structured and cleaned data from speakers of low-resource languages.
+Thanks to Joel Matthew's great [blog article](https://www.etenlab.org/post/bible-translation-and-whatsapp) at the ETEN Lab, we have decided to build WhatsApp bot to collect more structured and cleaned data from speakers of low-resource languages.
 
 > ... in an extremely resource-strapped or sensitive region, a WhatsApp AI-bot could be **the** application for doing Bible Translation. More people own smartphones than computers and I know places that have differential pricing for Meta (formerly Facebook) services. 
 
-WhatsApp, as a widely used communication tool  lowers the barrier. WhatsApp natively supports multiple formats of messages: text, image, video, document, audio etc. This bot aims to address text and voice messages as a start.
+WhatsApp, as a widely used communication tool lowers the barrier for people to contribute to bible translation. WhatsApp natively supports multiple formats of messages: text, image, video, document, audio etc. This bot aims to address text and voice messages as a start.
 
 ## Design
 A server that takes input from linguists with a frontend UI, and handles WhatsApp chat sessions from end-users who answer those questions. Bible translators can set up question campaigns to elicit information on certain topics to speakers of targeted languages.
