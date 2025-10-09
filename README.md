@@ -18,7 +18,7 @@ graph TD
     B -->|Transcription| F[OpenAI Whisper API]
     B -->|Validation & Feedback| G[Gloo AI]
     G -->|Suggestions| B
-    E -->|Export| H[Bible Translation Software<br/>(FLEx, Paratext)]
+    E -->|Export| H["Bible Translation Software<br>(FLEx, Paratext)"]
     style A fill:#e1f5fe
     style C fill:#f3e5f5
     style B fill:#fff3e0
