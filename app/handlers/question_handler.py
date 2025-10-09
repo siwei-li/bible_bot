@@ -40,6 +40,10 @@ class QuestionHandler:
             )
             self.session_manager.clear_session(user_id)
             return
+            # await self.domain_handler.send_domain_list(
+            #     wa_client, 
+            #     user_id
+            # )
         
         # Get total questions count for progress
         # all_questions = await self.questions_service.get_questions_by_domain(domain)
@@ -56,7 +60,7 @@ class QuestionHandler:
             text=(
                 f"📝 Question:\n\n"
                 f"{next_question['text']}\n\n"
-                f"You may also send a voice message to us!\n\n"
+                # f"You may also send a voice message to us!\n\n"
             )
         )
     

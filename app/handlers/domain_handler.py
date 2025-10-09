@@ -14,7 +14,7 @@ class DomainHandler:
         current_domain = session.get("domain")
         progress = await get_user_progress(user_id)
         
-        message = f"{prefix_message}\n\nAvailable domains:\n\n"
+        message = f"{prefix_message}\n\nAvailable domains:\nPick a domain to get started. (Enter '1', '2', '3', etc. to choose)\n\n"
 
         # Check if they have unanswered questions in current domain
         if current_domain:

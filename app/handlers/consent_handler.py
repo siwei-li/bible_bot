@@ -80,7 +80,7 @@ class ConsentHandler:
             await domain_handler.send_domain_list(
                 wa_client, 
                 user_id, 
-                prefix_message=f"✅ Thanks for picking {language_name}!\n\nPick a domain to get started."
+                prefix_message=f"✅ Thanks for picking {language_name}!\n"
             )
             # await self.save_user_language(user_id, selected_language["code"], selected_language["name"]) #LATER - save to DB
             # await self.complete_onboarding(wa_client, user_id, selected_language["name"])
