@@ -8,9 +8,9 @@ CHAT_API_URL = "https://platform.ai.gloo.com/ai/v1/chat"
 
 
 timeout_config = httpx.Timeout(
-    timeout=5,
+    timeout=10,
     connect=10.0,  # Connection timeout
-    read=5,  # Read timeout
+    read=60,  # Read timeout
     write=10.0,  # Write timeout
     pool=5.0   # Pool timeout
 )
@@ -34,6 +34,7 @@ def send_message(message_text, chat_id=None) -> dict:
             MESSAGE_API_URL,
             headers=get_auth_headers(),
             json=payload,
+            timeout=(10.0, 60.0)
         )
         response.raise_for_status()
         return response.json()

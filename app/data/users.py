@@ -9,7 +9,7 @@ from gloo.chat import send_message
 CHAT_API_URL = "https://platform.ai.gloo.com/ai/v1/chat"
 
 
-def _get_or_create_gloo_chat_session(whatsapp_id: str) -> str:
+async def _get_or_create_gloo_chat_session(whatsapp_id: str) -> str:
     """Get existing chat session or create new one for WhatsApp user."""
 
     # Check if user already has a chat session
@@ -39,14 +39,9 @@ executor = ThreadPoolExecutor(max_workers=5)
 async def send_gloo_message_for_whatsapp_user(whatsapp_id: str, message: str):
     """Async wrapper around sync Gloo API calls"""
     try:
-        # Get chat_id in thread pool
+        chat_id = await _get_or_create_gloo_chat_session(whatsapp_id)
+
         loop = asyncio.get_event_loop()
-        chat_id = await loop.run_in_executor(
-            executor, 
-            _get_or_create_gloo_chat_session,
-            whatsapp_id
-        )
-        
         # Send message in thread pool
         response = await loop.run_in_executor(
             executor,
