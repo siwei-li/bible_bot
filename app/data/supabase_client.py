@@ -40,12 +40,28 @@ async def store_response(
         print(f"Error storing response: {e}")
         return None
 
+async def insert_question(question_text: str, question_type: str, domain: str):
+    """Insert a new question into the database"""
+    try:
+        response = supabaseClient.table("questions").insert({
+            "text": question_text,
+            "question_type": question_type,
+            "domain": domain
+        }).execute()
+        if response.data and len(response.data) > 0:
+            return response.data[0]
+        else:
+            print(f"No data returned from insert: {response}")
+            return None
+    except Exception as e:
+        print(f"Error inserting question: {e}")
+        return None
 
 async def get_user_progress(user_id: str):
     """Get user progress from database"""
     try:
         result = (
-            supabase.table('user_progress')
+            supabaseClient.table('user_progress')
             .select('*')
             .eq('user_id', user_id)
             .execute()
@@ -60,7 +76,7 @@ async def get_user_progress(user_id: str):
                 'answered_questions': [],
                 'created_at': datetime.utcnow().isoformat()
             }
-            supabase.table('user_progress').insert(new_progress).execute()
+            supabaseClient.table('user_progress').insert(new_progress).execute()
             return new_progress
     except Exception as e:
         print(f"Database error: {e}")
@@ -86,7 +102,7 @@ async def update_user_progress(
             updates['answered_questions'] = answered_list
         
         (
-            supabase.table('user_progress')
+            supabaseClient.table('user_progress')
             .update(updates)
             .eq('user_id', user_id)
             .execute()
@@ -111,24 +127,14 @@ async def update_transcription_in_db(audio_id: int, corrected_text: str, validat
         print(f"Error updating transcription: {e}")
 
 
-#LATER - 
-def store_user_metadata(whatsapp_id: str, profile_name: str = None):
-    """Store additional user metadata"""
-    try:
-        # Get user profile info if available
-        user_data = {
-            'user_id': whatsapp_id,
-            'domain': 'whatsapp',
-            'answered_questions': []
-        }
-        
-        if profile_name:
-            user_data['profile_name'] = profile_name
-            
-        # Upsert user data
-        result = supabase.table('user_progress').upsert(user_data).execute()
-        return result.data
-        
-    except Exception as e:
-        print(f"Error storing user metadata: {e}")
-        return None
+async def store_user_language(user_id: str, language_code: str):
+    """Store or update user's language preference"""
+    response = supabaseClient.table("user_progress").upsert(
+        {
+            "user_id": user_id,
+            "language_code": language_code,
+        },
+        on_conflict="user_id"
+    ).execute()
+    
+    return response.data

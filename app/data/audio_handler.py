@@ -3,6 +3,7 @@ from pathlib import Path
 import openai
 from typing import Optional, Dict, Any
 from data.supabase_client import supabaseClient
+from datetime import datetime, timedelta
 
 
 class AudioHandler:
@@ -11,19 +12,17 @@ class AudioHandler:
         self.openai_client = openai_client
         self.audio_storage_path = Path("./audio_files")
         self.audio_storage_path.mkdir(exist_ok=True)
+        self.pending_transcriptions: Dict[str, Dict[str, Any]] = {}
 
     async def process_audio_message(self, media_id: str, user_id: str) -> Dict[str, Any]:
         """Download, transcribe, and store audio message"""
         try:
-            # Download audio file
             file_info = await self._download_whatsapp_media(media_id)
             if not file_info:
                 return {"error": "Failed to download audio"}
 
-            # Transcribe audio
             transcription_result = await self._transcribe_audio(file_info["file_path"])
             
-            # Store in database
             audio_record = await self._store_audio_metadata(
                 media_id=media_id,
                 user_id=user_id,
@@ -33,7 +32,7 @@ class AudioHandler:
 
             return {
                 "transcription": transcription_result["text"],
-                "confidence": transcription_result.get("confidence", 0.0),
+                "confidence": -getattr(transcription_result, 'avg_logprob', 0.0),
                 "file_path": file_info["file_path"],
                 "audio_id": audio_record["id"]
             }
@@ -43,19 +42,19 @@ class AudioHandler:
             return {"error": str(e)}
 
     # Clean up old pending transcriptions periodically
-    async def cleanup_old_transcriptions():
+    async def cleanup_old_transcriptions(self):
         """Remove pending transcriptions older than 5 minutes"""
         while True:
             try:
                 current_time = datetime.now()
                 expired_users = []
                 
-                for user_id, data in pending_transcriptions.items():
+                for user_id, data in self.pending_transcriptions.items():
                     if current_time - data["timestamp"] > timedelta(minutes=5):
                         expired_users.append(user_id)
                 
                 for user_id in expired_users:
-                    del pending_transcriptions[user_id]
+                    del self.pending_transcriptions[user_id]
                     print(f"Cleaned up expired transcription for user {user_id}")
                 
                 await asyncio.sleep(60)  # Check every minute

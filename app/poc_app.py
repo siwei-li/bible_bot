@@ -3,6 +3,7 @@ import sys
 import logging
 from dotenv import load_dotenv
 from pywa_async import WhatsApp
+from pywa.types import CallbackSelection
 from openai import OpenAI
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
@@ -61,7 +62,6 @@ message_handlers = MessageHandlers(
 fastapi_app = FastAPI()
 
 NGROK_URL = os.getenv("NGROK_URL", "http://localhost:5017")
-# Configure CORS to allow ngrok domains
 fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -79,11 +79,6 @@ fastapi_app.add_middleware(
 @fastapi_app.get("/status")
 def status():
     return {"message": "FastAPI app running"}
-
-
-@fastapi_app.get("/webhook-url")
-def get_webhook_url():
-    return {"webhook_url": f"{NGROK_URL}/webhook"}
 
 
 @fastapi_app.get("/webhook")
@@ -106,17 +101,21 @@ def verify_webhook(request: Request):
     else:
         return PlainTextResponse(content="Forbidden", status_code=403)
 
+# async def lifespan(app: FastAPI): #LATER - use lifespan for startup/shutdown tasks
 
 wa = WhatsApp(
     phone_id=os.getenv('WHATSAPP_PHONE_ID'),
     token=WHATSAPP_TOKEN,
     server=fastapi_app,
     verify_token=os.getenv('WHATSAPP_VERIFY_TOKEN'),
-    webhook_challenge_delay=60,  # Increase delay
-    # callback_url=os.getenv('WHATSAPP_CALLBACK_URL'),
-    # app_id=int(os.getenv('WHATSAPP_APP_ID')),
-    # app_secret=os.getenv('WHATSAPP_APP_SECRET'),
+    webhook_challenge_delay=60
 )
+
+@wa.on_callback_selection()  # No factory needed for simple string callback_data; add filters=filters.startswith('lang:') if you want to match only language callbacks
+async def handle_language_selection(client: WhatsApp, sel: CallbackSelection):
+    user_id = sel.from_user.wa_id
+    language_selection = sel.data.replace("lang:", "")
+    await consent_handler.handle_consent_response(client, user_id, language_selection)
 
 
 @wa.on_message()
@@ -126,7 +125,8 @@ async def handle_message(wa_client, msg):
         user_id = msg.from_user.wa_id
         session = session_manager.get_session(user_id)
         logger.info(f"Session state: {session['state']}")
-        logger.info(f"Message type: {msg.type}")
+        # logger.info(f"Message type: {msg.type}")
+        logger.info(f"Message: {msg}")
 
         if session["state"] == session_manager.UserState.NEW_USER:
             await consent_handler.send_welcome_message(wa_client, user_id)

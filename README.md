@@ -1,15 +1,22 @@
+# Bible translation WhatsApp chatbot
+
+Thanks to Joel Matthew's great [blog article](https://www.etenlab.org/post/bible-translation-and-whatsapp) at ETEN Labs, we decided to build WhatsApp bot to collect more data from speakers of low-resource languages.
+
+
+## Implementation
+
+
+```
 # Local development
 pip3 install -r requirements.txt
-python3 -m uvicorn poc_app:fastapi_app --reload --port 5017
+python3 -m uvicorn poc_app:fastapi_app --reload --port LOCAL_PORT
 
 # Docker
 docker compose up --build
+```
 
-Expose ngrok: ngrok http 5017
+## Future work
+- It would be nice to 
 
 ---
-TODO list:
-
-- fix: progress update count of answered questions
-later:
-- info for each of the domains
+text='hi', image=None, video=None, sticker=None, document=None, audio=None, caption=None, reaction=None, location=None, contacts=None
