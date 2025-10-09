@@ -1,49 +1,63 @@
 import pytest
-from unittest.mock import patch, MagicMock
-from gloo.chat import send_message
+from gloo.chat import send_message, get_chat_history
 
 
-# @patch("gloo.chat.ensure_valid_token")
-# @patch("gloo.chat.requests.post")
-# def test_send_message_success(mock_post, mock_token):
-#     mock_token.return_value = "fake-token"
-#     mock_response = MagicMock()
-#     mock_response.json.return_value = {"result": "ok"}
-#     mock_response.raise_for_status.return_value = None
-#     mock_post.return_value = mock_response
+def test_send_message_success(monkeypatch):
 
-#     result = send_message("Hello, world!")
-#     assert result == {"result": "ok"}
-#     mock_post.assert_called_once()
-#     args, kwargs = mock_post.call_args
-#     assert kwargs["headers"]["Authorization"] == "Bearer fake-token"
-#     assert kwargs["json"]["query"] == "Hello, world!"
-#     assert "chat_id" not in kwargs["json"]
+    class MockResponse:
+        def raise_for_status(self):
+            pass
 
+        def json(self):
+            return {
+                "chat_id": "test_chat_id",
+                "message": "Hello!",
+                "expires_in": 3600,
+                "access_token": "dummy_token"
+            }
 
-# @patch("gloo.chat.ensure_valid_token")
-# @patch("gloo.chat.requests.post")
-# def test_send_message_with_chat_id(mock_post, mock_token):
-#     mock_token.return_value = "fake-token"
-#     mock_response = MagicMock()
-#     mock_response.json.return_value = {"result": "ok"}
-#     mock_response.raise_for_status.return_value = None
-#     mock_post.return_value = mock_response
+    def mock_post(*args, **kwargs):
+        return MockResponse()
 
-#     result = send_message("Test message", chat_id="12345")
-#     assert result == {"result": "ok"}
-#     args, kwargs = mock_post.call_args
-#     assert kwargs["json"]["chat_id"] == "12345"
+    monkeypatch.setattr("requests.post", mock_post)
+    result = send_message("Hello!")
+    assert "chat_id" in result
+    assert result["message"] == "Hello!"
 
 
-# @patch("gloo.chat.ensure_valid_token")
-# @patch("gloo.chat.requests.post")
-# def test_send_message_raises_for_status(mock_post, mock_token):
-#     mock_token.return_value = "fake-token"
-#     mock_response = MagicMock()
-#     mock_response.raise_for_status.side_effect = Exception("HTTP error")
-#     mock_post.return_value = mock_response
+def test_send_message_timeout(monkeypatch):
 
-#     with pytest.raises(Exception) as excinfo:
-#         send_message("Error message")
-#     assert "HTTP error" in str(excinfo.value)
+    def mock_post(*args, **kwargs):
+        raise Exception("Request timed out")
+
+    monkeypatch.setattr("requests.post", mock_post)
+    with pytest.raises(Exception, match="Request timed out"):
+        send_message("Hello!")
+
+
+def test_get_chat_history_success(monkeypatch):
+
+    class MockResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"messages": [{"message": "Hello!"}]}
+
+    def mock_get(*args, **kwargs):
+        return MockResponse()
+
+    monkeypatch.setattr("requests.get", mock_get)
+    result = get_chat_history("test_chat_id")
+    assert "messages" in result
+    assert result["messages"][0]["message"] == "Hello!"
+
+
+def test_get_chat_history_http_error(monkeypatch):
+    class MockResponse:
+        def raise_for_status(self): raise Exception("HTTP error")
+    def mock_get(*args, **kwargs):
+        return MockResponse()
+    monkeypatch.setattr("requests.get", mock_get)
+    with pytest.raises(Exception):
+        get_chat_history("test_chat_id")
