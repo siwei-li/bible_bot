@@ -17,3 +17,6 @@ docker compose up --build
 
 ## Future work
 - It would be nice to 
+
+---
+text='hi', image=None, video=None, sticker=None, document=None, audio=None, caption=None, reaction=None, location=None, contacts=None

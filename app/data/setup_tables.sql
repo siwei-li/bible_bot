@@ -7,6 +7,8 @@ CREATE TABLE user_progress (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+ALTER TABLE user_progress ADD COLUMN native_language_code TEXT;
+ALTER TABLE user_progress ADD COLUMN native_language_name TEXT;
 
 -- Create user_responses table
 CREATE TABLE user_responses (

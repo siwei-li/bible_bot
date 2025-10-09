@@ -3,6 +3,7 @@ import sys
 import logging
 from dotenv import load_dotenv
 from pywa_async import WhatsApp
+from pywa.types import CallbackSelection
 from openai import OpenAI
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
@@ -113,6 +114,12 @@ wa = WhatsApp(
     # app_secret=os.getenv('WHATSAPP_APP_SECRET'),
 )
 
+@wa.on_callback_selection()  # No factory needed for simple string callback_data; add filters=filters.startswith('lang:') if you want to match only language callbacks
+async def handle_language_selection(client: WhatsApp, sel: CallbackSelection):
+    user_id = sel.from_user.wa_id
+    language_selection = sel.data.replace("lang:", "")
+    await consent_handler.handle_consent_response(client, user_id, language_selection)
+
 
 @wa.on_message()
 async def handle_message(wa_client, msg):
@@ -121,7 +128,8 @@ async def handle_message(wa_client, msg):
         user_id = msg.from_user.wa_id
         session = session_manager.get_session(user_id)
         logger.info(f"Session state: {session['state']}")
-        logger.info(f"Message type: {msg.type}")
+        # logger.info(f"Message type: {msg.type}")
+        logger.info(f"Message: {msg}")
 
         if session["state"] == session_manager.UserState.NEW_USER:
             await consent_handler.send_welcome_message(wa_client, user_id)
