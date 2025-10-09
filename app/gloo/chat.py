@@ -1,15 +1,23 @@
 from gloo.cred import get_auth_headers
-
 import requests
+import httpx
 
 
 MESSAGE_API_URL = "https://platform.ai.gloo.com/ai/v1/message"
 CHAT_API_URL = "https://platform.ai.gloo.com/ai/v1/chat"
 
 
-def send_message(message_text, chat_id=None) -> dict:
-    """Send a message to the chat API."""
+timeout_config = httpx.Timeout(
+    timeout=5,
+    connect=10.0,  # Connection timeout
+    read=5,  # Read timeout
+    write=10.0,  # Write timeout
+    pool=5.0   # Pool timeout
+)
 
+
+def send_message(message_text, chat_id=None) -> dict:
+    """Send a message to the chat API synchronously with timeout."""
     payload = {
         "query": message_text,
         "character_limit": 1000,
@@ -21,10 +29,23 @@ def send_message(message_text, chat_id=None) -> dict:
     if chat_id:
         payload["chat_id"] = chat_id
 
-    response = requests.post(MESSAGE_API_URL, headers=get_auth_headers(), json=payload)
-    response.raise_for_status()
-
-    return response.json()
+    try:
+        response = requests.post(
+            MESSAGE_API_URL,
+            headers=get_auth_headers(),
+            json=payload,
+        )
+        response.raise_for_status()
+        return response.json()
+        
+    except requests.exceptions.Timeout:
+        raise Exception("Request timed out")
+    except requests.exceptions.ConnectionError:
+        raise Exception("Connection error - check internet connection")
+    except requests.exceptions.HTTPError as e:
+        raise Exception(f"HTTP error: {e.response.status_code}")
+    except Exception as e:
+        raise Exception(f"Unexpected error: {str(e)}")
 
 
 def get_chat_history(chat_id):

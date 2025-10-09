@@ -1,4 +1,6 @@
 import os
+import sys
+import logging
 from dotenv import load_dotenv
 from pywa_async import WhatsApp
 from openai import OpenAI
@@ -6,14 +8,30 @@ from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+app_dir = os.path.dirname(os.path.abspath(__file__))
+if app_dir not in sys.path:
+    sys.path.insert(0, app_dir)
+
 from session.session_manager import SessionManager
 from services.questions_service import QuestionsService
+from data.audio_handler import AudioHandler
 from handlers.message_handlers import MessageHandlers
 from handlers.question_handler import QuestionHandler
 from handlers.consent_handler import ConsentHandler
 from handlers.domain_handler import DomainHandler
-from data.audio_handler import AudioHandler
 
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.StreamHandler(sys.stderr)
+    ],
+    force=True  # Override any existing logging configuration
+)
+logger = logging.getLogger("poc_app")
+logging.getLogger().setLevel(logging.INFO)
 
 load_dotenv()
 
@@ -30,7 +48,7 @@ audio_handler = AudioHandler(
 session_manager = SessionManager()
 questions_service = QuestionsService()
 question_handler = QuestionHandler(session_manager, questions_service)
-consent_handler = ConsentHandler(session_manager, questions_service)
+consent_handler = ConsentHandler(session_manager)
 domain_handler = DomainHandler(session_manager, questions_service)
 message_handlers = MessageHandlers(
     session_manager,
@@ -106,10 +124,12 @@ async def handle_message(wa_client, msg):
     """Main message handler - delegates to specialized handlers"""
     try:
         user_id = msg.from_user.wa_id
-
         session = session_manager.get_session(user_id)
+        logger.info(f"Session state: {session['state']}")
+        logger.info(f"Message type: {msg.type}")
+
         if session["state"] == session_manager.UserState.NEW_USER:
-            await consent_handler.handle_new_user_welcome(wa_client, user_id)
+            await consent_handler.send_welcome_message(wa_client, user_id)
             return
 
         if msg.type == "audio":
