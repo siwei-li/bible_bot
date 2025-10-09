@@ -9,4 +9,5 @@ COPY . .
 
 EXPOSE 5017
 
+ENV PYTHONPATH=/app
 CMD ["uvicorn", "app.poc_app:fastapi_app", "--host", "0.0.0.0", "--port", "5017"]
