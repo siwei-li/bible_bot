@@ -22,7 +22,6 @@
     <table>
         <thead>
             <tr>
-                <th>ID</th>
                 <th>Name</th>
                 <th>Description</th>
                 <th>Active</th>
@@ -32,7 +31,6 @@
         <tbody>
             {% for campaign in campaigns %}
             <tr>
-                <td>{{ campaign.id }}</td>
                 <td>{{ campaign.name }}</td>
                 <td>{{ campaign.description or 'N/A' }}</td>
                 <td>{{ '✓' if campaign.active else '✗' }}</td>

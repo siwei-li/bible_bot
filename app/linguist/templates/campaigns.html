@@ -16,7 +16,6 @@
     <table>
         <thead>
             <tr>
-                <th>ID</th>
                 <th>Name</th>
                 <th>Project</th>
                 <th>Status</th>
@@ -27,7 +26,6 @@
         <tbody id="campaigns-table">
             {% for campaign in campaigns %}
             <tr>
-                <td>{{ campaign.id }}</td>
                 <td>{{ campaign.name }}</td>
                 <td>{{ campaign.projects.title if campaign.projects else 'N/A' }}</td>
                 <td>

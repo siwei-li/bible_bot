@@ -24,7 +24,6 @@
     <table>
         <thead>
             <tr>
-                <th>ID</th>
                 <th>Title</th>
                 <th>UI Language</th>
                 <th>Target Language</th>
@@ -34,7 +33,6 @@
         <tbody id="projects-table">
             {% for project in projects %}
             <tr>
-                <td>{{ project.id }}</td>
                 <td><a href="/linguist/projects/{{ project.id }}">{{ project.title }}</a></td>
                 <td>{{ project.ui_language }}</td>
                 <td>{{ project.target_language }}</td>

@@ -116,6 +116,7 @@ Please respond with your answer."""
 
             # Send via WhatsApp if client provided
             if wa_client:
+                print(phone)
                 await wa_client.send_message(
                     to=phone,
                     text=message_text
