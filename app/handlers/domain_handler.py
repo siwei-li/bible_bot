@@ -95,7 +95,7 @@ class DomainHandler:
             )
             
             if remaining_questions:
-                domain_options.append(f"• 'continue {current_domain}' - Resume {current_domain} ({len(remaining_questions)} questions left)")
+                domain_options.append(f"• '{current_domain}' - Resume your progress in {current_domain}")
         
         # Show all available domains
         for domain in domains:
@@ -108,7 +108,7 @@ class DomainHandler:
             to=user_id,
             text=(
                 f"Available options:\n\n{domain_list}\n\n"
-                f"Reply with a domain name to start, 'continue [domain]' to resume."
+                f"Reply with a domain name to start or resume."
                 # ", or 'info' to learn more."
             )
         )

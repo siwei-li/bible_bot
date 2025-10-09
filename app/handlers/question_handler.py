@@ -18,7 +18,7 @@ class QuestionHandler:
         if not domain:
             await wa_client.send_message(
                 to=user_id,
-                text="Please start a domain first by saying 'start [domain]'." #FIXME - 
+                text="Please start a domain first by inputting '[domain]' or the number option like '1','2','3' etc."
             )
             return
         
@@ -42,8 +42,8 @@ class QuestionHandler:
             return
         
         # Get total questions count for progress
-        all_questions = await self.questions_service.get_questions_by_domain(domain)
-        total_count = len(all_questions)
+        # all_questions = await self.questions_service.get_questions_by_domain(domain)
+        # total_count = len(all_questions)
         
         # TODO - LLM give questions for scarce languages
 
@@ -56,7 +56,7 @@ class QuestionHandler:
             text=(
                 f"📝 Question:\n\n"
                 f"{next_question['text']}\n\n"
-                f"Progress: {len(answered_ids) + 1}/{total_count}" #LATER
+                f"You may also send a voice message to us!\n\n"
             )
         )
     

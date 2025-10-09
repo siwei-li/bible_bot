@@ -81,11 +81,6 @@ def status():
     return {"message": "FastAPI app running"}
 
 
-@fastapi_app.get("/webhook-url")
-def get_webhook_url():
-    return {"webhook_url": f"{NGROK_URL}/webhook"}
-
-
 @fastapi_app.get("/webhook")
 def verify_webhook(request: Request):
     """Handle WhatsApp webhook verification"""
