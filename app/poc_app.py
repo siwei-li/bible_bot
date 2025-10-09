@@ -26,7 +26,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.StreamHandler(sys.stderr)
+        # logging.StreamHandler(sys.stderr)
     ],
     force=True  # Override any existing logging configuration
 )
