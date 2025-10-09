@@ -92,16 +92,36 @@
 </section>
 
 <script>
-    // Show/hide file upload based on campaign type
+    // Handle campaign type changes
     document.getElementById('campaign_type').addEventListener('change', function() {
         const fileSection = document.getElementById('file-upload-section');
         const fileInput = document.getElementById('campaign_file');
+        const projectSelect = document.getElementById('project_id');
+
         if (this.value === 'custom') {
             fileSection.style.display = 'block';
             fileInput.required = true;
         } else {
             fileSection.style.display = 'none';
             fileInput.required = false;
+        }
+
+        // Redirect to specialized forms for Bible and TAME campaigns
+        if ((this.value === 'verse_translation' || this.value === 'books_of_bible') && projectSelect.value) {
+            window.location.href = `/linguist/campaigns/create/bible?project_id=${projectSelect.value}`;
+        } else if (this.value === 'tame_elicitation' && projectSelect.value) {
+            window.location.href = `/linguist/campaigns/create/tame?project_id=${projectSelect.value}`;
+        }
+    });
+
+    // Also handle when project is selected after campaign type
+    document.getElementById('project_id').addEventListener('change', function() {
+        const campaignType = document.getElementById('campaign_type').value;
+
+        if ((campaignType === 'verse_translation' || campaignType === 'books_of_bible') && this.value) {
+            window.location.href = `/linguist/campaigns/create/bible?project_id=${this.value}`;
+        } else if (campaignType === 'tame_elicitation' && this.value) {
+            window.location.href = `/linguist/campaigns/create/tame?project_id=${this.value}`;
         }
     });
 </script>

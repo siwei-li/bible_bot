@@ -102,7 +102,8 @@ async def oauth_callback(code: str = None):
             value=result["session"].access_token,
             httponly=True,
             max_age=result["session"].expires_in,
-            samesite="lax"
+            samesite="lax",
+            secure=True
         )
         return resp
     else:
@@ -144,6 +145,43 @@ async def list_projects(request: Request):
             "user": user
         })
 
+@router.get("/projects/{project_id}", response_class=HTMLResponse)
+async def view_project(request: Request, project_id: int):
+    """View individual project details"""
+    user = await auth.get_current_user(request)
+    redirect = auth.redirect_if_not_authenticated(user)
+    if redirect:
+        return redirect
+
+    try:
+        project = await db_helpers.get_project_by_id(project_id)
+        if not project:
+            return templates.TemplateResponse("projects.html", {
+                "request": request,
+                "projects": [],
+                "error": f"Project {project_id} not found",
+                "user": user
+            })
+
+        # Get campaigns for this project
+        campaigns_result = await db_helpers.get_all_campaigns()
+        project_campaigns = [c for c in campaigns_result if c.get('project_id') == project_id]
+
+        return templates.TemplateResponse("project_detail.html", {
+            "request": request,
+            "project": project,
+            "campaigns": project_campaigns,
+            "user": user
+        })
+    except Exception as e:
+        print(f"Error viewing project: {e}")
+        return templates.TemplateResponse("projects.html", {
+            "request": request,
+            "projects": [],
+            "error": str(e),
+            "user": user
+        })
+
 @router.post("/projects", response_class=HTMLResponse)
 async def create_project(
     request: Request,
@@ -161,7 +199,7 @@ async def create_project(
         return f"""
         <tr>
             <td>{project.get('id', 'N/A')}</td>
-            <td>{project.get('title', '')}</td>
+            <td><a href="/linguist/projects/{project.get('id')}">{project.get('title', '')}</a></td>
             <td>{project.get('ui_language', '')}</td>
             <td>{project.get('target_language', '')}</td>
             <td>{project.get('created_at', '')[:10] if project.get('created_at') else 'N/A'}</td>
@@ -213,25 +251,28 @@ async def create_campaign(
         return '<tr><td colspan="5" style="color: red;">Not authenticated</td></tr>'
 
     try:
+        # Build description from campaign type and file data
+        description = f"Campaign type: {campaign_type}"
+
         # Handle file upload if custom campaign
-        file_data = None
         if campaign_type == "custom" and campaign_file and campaign_file.filename:
             content = await campaign_file.read()
             file_content = content.decode('utf-8')
 
             if campaign_file.filename.endswith('.json'):
                 file_data = json.loads(file_content)
+                description += f" | File: {campaign_file.filename} ({len(file_data)} items)"
             elif campaign_file.filename.endswith('.csv'):
                 csv_reader = csv.DictReader(StringIO(file_content))
                 file_data = list(csv_reader)
+                description += f" | File: {campaign_file.filename} ({len(file_data)} rows)"
 
         is_active = active == "on"
         campaign = await db_helpers.create_campaign(
             name=campaign_name,
             project_id=project_id,
-            campaign_type=campaign_type,
-            active=is_active,
-            file_data=file_data
+            description=description,
+            active=is_active
         )
 
         # Get project title for display

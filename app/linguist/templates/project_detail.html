@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.title }}{% endblock %}
+
+{% block content %}
+<article>
+    <header>
+        <a href="/linguist/projects">← Back to Projects</a>
+        <h1>{{ project.title }}</h1>
+        <p>
+            <strong>UI Language:</strong> {{ project.ui_language }} |
+            <strong>Target Language:</strong> {{ project.target_language }}
+        </p>
+        <p><small>Created: {{ project.created_at[:10] if project.created_at else 'N/A' }}</small></p>
+    </header>
+</article>
+
+<section>
+    <h2>Campaigns for this Project</h2>
+
+    {% if campaigns %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Active</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for campaign in campaigns %}
+            <tr>
+                <td>{{ campaign.id }}</td>
+                <td>{{ campaign.name }}</td>
+                <td>{{ campaign.description or 'N/A' }}</td>
+                <td>{{ '✓' if campaign.active else '✗' }}</td>
+                <td>{{ campaign.created_at[:10] if campaign.created_at else 'N/A' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No campaigns yet for this project.</p>
+    {% endif %}
+
+    <h3>Create New Campaign</h3>
+    <div role="group">
+        <a href="/linguist/campaigns/create/bible?project_id={{ project.id }}" role="button">Create Bible Campaign</a>
+        <a href="/linguist/campaigns/create/tame?project_id={{ project.id }}" role="button" class="secondary">Create TAME Campaign</a>
+        <a href="/linguist/campaigns" role="button" class="outline">View All Campaign Types</a>
+    </div>
+</section>
+{% endblock %}
