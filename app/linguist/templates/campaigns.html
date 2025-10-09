@@ -19,8 +19,9 @@
                 <th>ID</th>
                 <th>Name</th>
                 <th>Project</th>
-                <th>Active</th>
+                <th>Status</th>
                 <th>Created</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody id="campaigns-table">
@@ -29,13 +30,33 @@
                 <td>{{ campaign.id }}</td>
                 <td>{{ campaign.name }}</td>
                 <td>{{ campaign.projects.title if campaign.projects else 'N/A' }}</td>
-                <td>{{ '✓' if campaign.active else '✗' }}</td>
+                <td>
+                    {% if campaign.status == 'draft' %}
+                        📝 Draft
+                    {% elif campaign.status == 'ready' %}
+                        ✅ Ready
+                    {% elif campaign.status == 'active' %}
+                        🚀 Active
+                    {% else %}
+                        {{ '✓' if campaign.active else '✗' }}
+                    {% endif %}
+                </td>
                 <td>{{ campaign.created_at[:10] if campaign.created_at else 'N/A' }}</td>
+                <td>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <a href="/linguist/campaigns/{{ campaign.id }}/recipients" role="button" class="outline" style="padding: 0.25rem 0.75rem; margin: 0;">
+                            📱 Recipients
+                        </a>
+                        <a href="/linguist/campaigns/{{ campaign.id }}/questions" role="button" class="outline secondary" style="padding: 0.25rem 0.75rem; margin: 0;">
+                            📝 Questions
+                        </a>
+                    </div>
+                </td>
             </tr>
             {% endfor %}
             {% if not campaigns %}
             <tr>
-                <td colspan="5">No campaigns found.</td>
+                <td colspan="6">No campaigns found.</td>
             </tr>
             {% endif %}
         </tbody>

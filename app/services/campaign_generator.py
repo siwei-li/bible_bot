@@ -284,7 +284,8 @@ async def create_tame_campaign(
         base_gloss = base.get('gloss', '')
 
         # For each selected category
-        for category in categories:
+        for c in categories:
+            category = c.lower()
             # Get template for this category
             template_result = supabaseClient.table('question_templates').select('*').eq(
                 'template_type', f'tame_{category}'
@@ -324,6 +325,7 @@ async def create_tame_campaign(
                 question_result = supabaseClient.table('questions').insert(question_data).execute()
 
                 if question_result.data:
+                    print(question_result.data)
                     question = question_result.data[0]
                     questions.append(question)
 

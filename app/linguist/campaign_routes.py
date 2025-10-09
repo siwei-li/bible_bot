@@ -23,6 +23,12 @@ from services.campaign_generator import (
     create_ordered_campaign,
     BibleAPIError
 )
+from services.campaign_starter import (
+    add_recipients_to_campaign,
+    get_campaign_recipients,
+    start_campaign_flow,
+    remove_recipient
+)
 
 router = APIRouter(prefix="/linguist/campaigns", tags=["campaigns"])
 
@@ -146,14 +152,14 @@ async def create_tame_campaign_submit(
         )
 
     except json.JSONDecodeError:
-        return templates.TemplateResponse("create_tame_campaign.html", {
+        return templates.TemplateResponse("campaigns/create_tame_campaign.html", {
             "request": request,
             "user": user,
             "project_id": project_id,
             "error": "Invalid sentence format. Please check your JSON."
         })
     except Exception as e:
-        return templates.TemplateResponse("create_tame_campaign.html", {
+        return templates.TemplateResponse("campaigns/create_tame_campaign.html", {
             "request": request,
             "user": user,
             "project_id": project_id,
@@ -425,3 +431,149 @@ async def upload_media_file(
             {"error": f"Upload failed: {str(e)}"},
             status_code=500
         )
+
+
+# ============================================
+# Campaign Recipient Management Routes
+# ============================================
+
+@router.get("/{campaign_id}/recipients", response_class=HTMLResponse)
+async def view_campaign_recipients(request: Request, campaign_id: int):
+    """View and manage recipients for a campaign"""
+    user = await auth.get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/linguist/login", status_code=303)
+
+    # Get campaign details
+    campaign_result = supabaseClient.table('campaigns').select('*').eq('id', campaign_id).execute()
+
+    if not campaign_result.data:  # type: ignore
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    campaign = campaign_result.data[0]  # type: ignore
+
+    # Get recipients
+    recipients = await get_campaign_recipients(campaign_id)
+
+    return templates.TemplateResponse("campaigns/manage_recipients.html", {
+        "request": request,
+        "user": user,
+        "campaign": campaign,
+        "recipients": recipients
+    })
+
+
+@router.post("/{campaign_id}/recipients/add")
+async def add_campaign_recipients(
+    request: Request,
+    campaign_id: int,
+    phone_numbers: str = Form(...)  # Comma or newline separated
+):
+    """Add phone numbers to a campaign"""
+    user = await auth.get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/linguist/login", status_code=303)
+
+    try:
+        # Parse phone numbers (support comma or newline separated)
+        phones = [p.strip() for p in phone_numbers.replace('\n', ',').split(',') if p.strip()]
+
+        if not phones:
+            raise ValueError("No phone numbers provided")
+
+        # Add recipients
+        result = await add_recipients_to_campaign(campaign_id, phones)
+
+        return RedirectResponse(
+            url=f"/linguist/campaigns/{campaign_id}/recipients?success=added_{result['recipients_added']}",
+            status_code=303
+        )
+
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/linguist/campaigns/{campaign_id}/recipients?error={str(e)}",
+            status_code=303
+        )
+
+
+@router.post("/{campaign_id}/recipients/remove")
+async def remove_campaign_recipient(
+    request: Request,
+    campaign_id: int,
+    phone_number: str = Form(...)
+):
+    """Remove a phone number from a campaign"""
+    user = await auth.get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/linguist/login", status_code=303)
+
+    try:
+        await remove_recipient(campaign_id, phone_number)
+
+        return RedirectResponse(
+            url=f"/linguist/campaigns/{campaign_id}/recipients?success=removed",
+            status_code=303
+        )
+
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/linguist/campaigns/{campaign_id}/recipients?error={str(e)}",
+            status_code=303
+        )
+
+
+@router.post("/{campaign_id}/start")
+async def start_campaign_endpoint(request: Request, campaign_id: int):
+    """Start a campaign - send WhatsApp messages to all recipients"""
+    user = await auth.get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    try:
+        # Get WhatsApp client from app state (you'll need to set this up)
+        wa_client = request.app.state.wa_client if hasattr(request.app.state, 'wa_client') else None
+
+        # Start the campaign
+        result = await start_campaign_flow(campaign_id, wa_client)
+
+        return JSONResponse({
+            "success": True,
+            "message": f"Campaign started! Sent to {result['sent']} recipients.",
+            "data": result
+        })
+
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+
+
+@router.get("/{campaign_id}/questions", response_class=HTMLResponse)
+async def view_campaign_questions(request: Request, campaign_id: int):
+    """View all questions in a campaign"""
+    user = await auth.get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/linguist/login", status_code=303)
+
+    # Get campaign details
+    campaign_result = supabaseClient.table('campaigns').select('*').eq('id', campaign_id).execute()
+
+    if not campaign_result.data:  # type: ignore
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    campaign = campaign_result.data[0]  # type: ignore
+
+    # Get questions with their sequence order
+    questions_result = supabaseClient.table('campaign_questions').select(
+        '*, questions(*)'
+    ).eq('campaign_id', campaign_id).order('sequence_order').execute()
+
+    questions = questions_result.data if questions_result.data else []  # type: ignore
+
+    return templates.TemplateResponse("campaigns/view_questions.html", {
+        "request": request,
+        "user": user,
+        "campaign": campaign,
+        "questions": questions
+    })

@@ -4,8 +4,7 @@ import logging
 from dotenv import load_dotenv
 from pywa_async import WhatsApp
 from openai import OpenAI
-from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 app_dir = os.path.dirname(os.path.abspath(__file__))
@@ -36,13 +35,12 @@ logging.getLogger().setLevel(logging.INFO)
 load_dotenv()
 
 WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN')
-openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-if not openai_client.api_key:
-    raise ValueError("Set OPENAI_API_KEY in .env file")
+# openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+# if not openai_client.api_key:
+#     raise ValueError("Set OPENAI_API_KEY in .env file")
 
 audio_handler = AudioHandler(
     whatsapp_token=WHATSAPP_TOKEN,
-    openai_client=openai_client
 )
 
 session_manager = SessionManager()
@@ -83,28 +81,11 @@ def status():
 
 @fastapi_app.get("/webhook-url")
 def get_webhook_url():
-    return {"webhook_url": f"{NGROK_URL}/webhook"}
+    return {"webhook_url": f"{NGROK_URL}/whatsapp"}
 
-
-@fastapi_app.get("/webhook")
-def verify_webhook(request: Request):
-    """Handle WhatsApp webhook verification"""
-    hub_mode = request.query_params.get("hub.mode")
-    hub_challenge = request.query_params.get("hub.challenge")
-    hub_verify_token = request.query_params.get("hub.verify_token")
-
-    print(
-        f"Webhook verification: mode={hub_mode}, "
-        f"challenge={hub_challenge}, token={hub_verify_token}"
-    )
-
-    if (
-        hub_mode == "subscribe"
-        and hub_verify_token == os.getenv('WHATSAPP_VERIFY_TOKEN')
-    ):
-        return PlainTextResponse(content=str(hub_challenge))
-    else:
-        return PlainTextResponse(content="Forbidden", status_code=403)
+# Note: The /whatsapp webhook endpoint is automatically registered by pywa_async
+# when we initialize the WhatsApp client with server=fastapi_app and webhook_endpoint='/whatsapp'
+# No need to manually define the webhook route here
 
 
 wa = WhatsApp(
@@ -112,6 +93,7 @@ wa = WhatsApp(
     token=WHATSAPP_TOKEN,
     server=fastapi_app,
     verify_token=os.getenv('WHATSAPP_VERIFY_TOKEN'),
+    webhook_endpoint='/whatsapp',  # Changed from default '/' to avoid conflicts
     webhook_challenge_delay=60,  # Increase delay
     # callback_url=os.getenv('WHATSAPP_CALLBACK_URL'),
     # app_id=int(os.getenv('WHATSAPP_APP_ID')),
@@ -144,6 +126,14 @@ async def handle_message(wa_client, msg):
             text="Sorry, something went wrong. Please try again."
         )
 
+from linguist.routes import router as linguist_router
+from linguist.campaign_routes import router as campaign_router
+
+# Make WhatsApp client available to campaign routes
+fastapi_app.state.wa_client = wa
+
+fastapi_app.include_router(linguist_router)
+fastapi_app.include_router(campaign_router)
 
 if __name__ == "__main__":
     import uvicorn

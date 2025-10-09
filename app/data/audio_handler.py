@@ -6,9 +6,8 @@ from data.supabase_client import supabaseClient
 
 
 class AudioHandler:
-    def __init__(self, whatsapp_token: str, openai_client: openai.OpenAI):
+    def __init__(self, whatsapp_token: str):
         self.whatsapp_token = whatsapp_token
-        self.openai_client = openai_client
         self.audio_storage_path = Path("./audio_files")
         self.audio_storage_path.mkdir(exist_ok=True)
 
@@ -28,7 +27,6 @@ class AudioHandler:
                 media_id=media_id,
                 user_id=user_id,
                 file_info=file_info,
-                transcription=transcription_result
             )
 
             return {
@@ -121,7 +119,7 @@ class AudioHandler:
             return {"text": "", "confidence": 0.0, "error": str(e)}
 
     async def _store_audio_metadata(self, media_id: str, user_id: str, 
-                                    file_info: Dict, transcription: Dict) -> Dict:
+                                    file_info: Dict) -> Dict:
         """Store audio file metadata in database"""
         audio_data = {
             "whatsapp_id": media_id,
@@ -130,8 +128,6 @@ class AudioHandler:
             "file_path": file_info["file_path"],
             "file_size": file_info["file_size"],
             "mime_type": file_info["mime_type"],
-            "transcription": transcription["text"],
-            "transcription_confidence": transcription["confidence"],
             "processed_at": "now()"
         }
 

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Questions - {{ campaign.name }}{% endblock %}
+
+{% block content %}
+<h1>📝 Campaign Questions</h1>
+<h2>{{ campaign.name }}</h2>
+
+{% if campaign.description %}
+<p>{{ campaign.description }}</p>
+{% endif %}
+
+<article>
+    <header>
+        <strong>Campaign Status:</strong>
+        <mark>{{ campaign.status or 'draft' }}</mark>
+        <br>
+        <strong>Total Questions:</strong> {{ questions|length }}
+    </header>
+
+    {% if questions|length == 0 %}
+    <p><em>No questions in this campaign yet.</em></p>
+    {% else %}
+    <table role="grid">
+        <thead>
+            <tr>
+                <th style="width: 60px;">Order</th>
+                <th>Question Text</th>
+                <th>Input Language</th>
+                <th>Output Language</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cq in questions %}
+            <tr>
+                <td><strong>#{{ cq.sequence_order }}</strong></td>
+                <td>{{ cq.questions.input_text }}</td>
+                <td>{{ cq.questions.input_language }}</td>
+                <td>{{ cq.questions.output_language }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <details style="margin-top: 20px;">
+        <summary>Question Details</summary>
+        {% for cq in questions %}
+        <article>
+            <header><strong>Question #{{ cq.sequence_order }}</strong></header>
+            <p><strong>Text:</strong> {{ cq.questions.input_text }}</p>
+            <p><strong>Input Language:</strong> {{ cq.questions.input_language }}</p>
+            <p><strong>Output Language:</strong> {{ cq.questions.output_language }}</p>
+            {% if cq.questions.metadata %}
+            <details>
+                <summary>Metadata</summary>
+                <pre>{{ cq.questions.metadata }}</pre>
+            </details>
+            {% endif %}
+        </article>
+        {% endfor %}
+    </details>
+    {% endif %}
+</article>
+
+<div style="display: flex; gap: 1rem;">
+    <a href="/linguist/campaigns" role="button" class="secondary">← Back to Campaigns</a>
+    <a href="/linguist/campaigns/{{ campaign.id }}/recipients" role="button" class="outline">📱 Manage Recipients</a>
+</div>
+
+{% endblock %}
