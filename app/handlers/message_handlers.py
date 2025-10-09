@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 from session.session_manager import SessionManager, UserState
 from data.supabase_client import store_response, update_user_progress
+from data.gloo_client import send_gloo_message_for_whatsapp_user
 
 
 if TYPE_CHECKING:
@@ -27,6 +28,7 @@ class MessageHandlers:
             UserState.AWAITING_CONTINUE_DECISION: self._handle_continue_decision,
             UserState.ON_BREAK: self._handle_break_return,
         }
+        self.pending_validations = {}
 
     async def handle_text_message(self, wa_client: "WhatsApp", user_id: str, text: str):
         """Route text messages based on user state"""
@@ -142,51 +144,77 @@ class MessageHandlers:
 
     async def process_text_with_validation(self, wa_client: "WhatsApp", user_id: str, text: str):
         """Process text answer using LLM validation"""
-        session = user_sessions[user_id]
+        session = self.session_manager.get_session(user_id)
+        question_id = session.get("current_question_id")
+        if not question_id:
+            await wa_client.send_message(
+                to=user_id,
+                text="No active question. Please start a domain first."
+            )
+            return
+    
+        question_data = await self.questions_service.get_question_by_id(question_id)
+        question_text = question_data.get('text', 'Unknown question') if question_data else 'Unknown question'
         
         await wa_client.send_message(
             to=user_id,
             text="🤔 Let me validate your response..."
         )
     
-        # Use Gloo AI for validation
         try:
-            validation_prompt = f"Please validate this answer for cultural and linguistic accuracy: '{text}'. Provide a cleaned version if needed, or respond 'valid' if it's good as-is. Also provide a score from 1-10."
-            
+            validation_prompt = (
+                f"Question: '{question_text}'\n"
+                f"Answer: '{text}'\n\n"
+                f"Please validate this answer for cultural and linguistic accuracy in relation to the question. "
+                f"Provide feedback and a cleaned version if needed, or respond 'valid' if it's good as-is. "
+                f"Also provide a score from 1-10 based on relevance, accuracy, and cultural appropriateness."
+            )  
             gloo_response = await send_gloo_message_for_whatsapp_user(
                 whatsapp_id=user_id,
                 message=validation_prompt
             )
-            
-            # Store for user confirmation
-            pending_validations[user_id] = {
-                "original_text": text,
-                "validation_response": gloo_response,
-                "question_id": session["current_question_id"]
-            }
-            
-            await wa_client.send_message(
-                to=user_id,
-                text=(
-                    f"📝 Your answer: \"{text}\"\n\n"
-                    f"🤖 AI feedback: {gloo_response}\n\n"
-                    f"Reply with:\n"
-                    f"• 'accept' - to use this validation\n"
-                    f"• 'edit: [your correction]' - to modify your answer"
+
+            if gloo_response.lower().strip() in ['valid', 'good', 'acceptable'] or 'valid' in gloo_response.lower():
+                # Auto-approve: skip user validation and proceed directly
+                await wa_client.send_message(
+                    to=user_id,
+                    text=(
+                        f"🤖 AI: {gloo_response}\n\n"
+                        f"Moving on to the next question..."
+                    )
                 )
-            )
-            
-            session["state"] = UserState.AWAITING_TEXT_VALIDATION
+                score = self._extract_score_from_response(gloo_response) or 8
+                await self._store_final_answer(user_id, text, "ai_validated", score)
+                await self._ask_continue_or_break(wa_client, user_id)
+
+            else:
+                # Store for user confirmation
+                self.pending_validations[user_id] = {
+                    "original_text": text,
+                    "validation_response": gloo_response,
+                    "question_id": session["current_question_id"]
+                }
+                
+                await wa_client.send_message(
+                    to=user_id,
+                    text=(
+                        f"🤖 AI feedback: {gloo_response}\n\n"
+                        f"Reply with:\n"
+                        f"• 'accept' or 'ac' - to use this validation\n"
+                        f"• 'edit: [your correction]' - to modify your answer"
+                    )
+                )
+                session["state"] = UserState.AWAITING_TEXT_VALIDATION
             
         except Exception as e:
             print(f"Error in validation: {e}")
             # Fallback - accept answer as-is
-            await store_final_answer(user_id, text, "no_validation", 5)
-            await ask_continue_or_break(wa_client, user_id)
+            await self._store_final_answer(user_id, text, "no_validation", 5)
+            await self._ask_continue_or_break(wa_client, user_id)
 
     async def _handle_text_validation_edit(self, wa_client: "WhatsApp", user_id: str, text: str):
         """Handle user edits to text validation"""
-        pending = pending_validations.get(user_id)
+        pending = self.pending_validations.get(user_id)
         if not pending:
             await wa_client.send_message(
                 to=user_id,
@@ -209,16 +237,20 @@ class MessageHandlers:
             await wa_client.send_message(to=user_id, text=f"✏️ Updated to: \"{final_text}\"")
         elif text.lower() == "accept":
             final_text = pending["validation_response"]
-            validation_type = "ai_accepted"
-            score = 8
+            validation_type = "original_text"
+            score = 10
             await wa_client.send_message(to=user_id, text="✅ Validation accepted!")
         else:  # User provided new answer
             final_text = text
             validation_type = "user_new"
-            score = 5
-            await wa_client.send_message(to=user_id, text=f"📝 New answer: \"{final_text}\"")
-        # Store final answer
+            score = 10
+            await wa_client.send_message(to=user_id, text=f"📝 Edited: \"{final_text}\"")
         await self._store_final_answer(user_id, final_text, validation_type, score)
+        await self._ask_continue_or_break(wa_client, user_id)
+
+    async def _ask_continue_or_break(self, wa_client: "WhatsApp", user_id: str):
+        """Ask user if they want to continue or take a break"""
+        self.session_manager.set_state(user_id, UserState.AWAITING_CONTINUE_DECISION)
         
         await wa_client.send_message(
             to=user_id,
@@ -230,7 +262,6 @@ class MessageHandlers:
                 f"• Reply 'done' to finish this session"
             )
         )
-        self.session_manager.set_state(user_id, self.session_manager.UserState.AWAITING_CONTINUE_DECISION)
 
     async def _store_final_answer(self, user_id: str, answer: str, validation: str, score: int):
         """Store the final validated answer"""
@@ -281,8 +312,7 @@ class MessageHandlers:
                     "Blessings!"
                 )
             )
-            # Reset session
-            del user_sessions[user_id]
+            self.session_manager.clear_session(user_id)
             
         else:
             await wa_client.send_message(
