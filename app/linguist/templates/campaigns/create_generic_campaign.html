@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+
+{% block title %}Create Campaign{% endblock %}
+
+{% block content %}
+<article>
+    <header>
+        <a href="/linguist/projects/{{ project_id }}">← Back to Project</a>
+        <h1>Create Campaign</h1>
+        <p>Create a custom data collection campaign</p>
+    </header>
+
+    {% if error %}
+    <div role="alert" style="background-color: var(--del-color);">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <div role="alert" style="background-color: var(--ins-color);">
+        <strong>How it works:</strong> Choose your input and output types, then create questions. Supports Text→Text (translation/paraphrasing), Image→Text (descriptions), and Audio→Audio (pronunciation).
+    </div>
+</article>
+
+<section>
+    <form method="POST" action="/linguist/campaigns/create/generic" id="genericForm">
+        <input type="hidden" name="project_id" value="{{ project_id }}">
+        <input type="hidden" name="questions_data" id="questions_data_json">
+
+        <label for="campaign_name">
+            Campaign Name *
+            <input type="text" id="campaign_name" name="campaign_name" required
+                   placeholder="e.g., Image Descriptions">
+        </label>
+
+        <label for="input_type">
+            Input Type *
+            <select id="input_type" name="input_type" onchange="updateQuestionForm()">
+                <option value="">-- Select Input Type --</option>
+                <option value="text">Text</option>
+                <option value="image">Image</option>
+                <option value="audio">Audio</option>
+            </select>
+            <small>What media will you provide to the user?</small>
+        </label>
+
+        <label for="output_type">
+            Output Type *
+            <select id="output_type" name="output_type" onchange="updateQuestionForm()">
+                <option value="">-- Select Output Type --</option>
+                <option value="text">Text</option>
+                <option value="audio">Audio (Voice)</option>
+            </select>
+            <small>What type of response do you expect?</small>
+        </label>
+
+        <fieldset id="questions-section" style="display: none;">
+            <legend>Questions</legend>
+            <div id="current-type-info" style="margin-bottom: 15px; padding: 10px; background-color: var(--code-background-color); border-radius: 4px;">
+                <strong>Campaign Type:</strong> <span id="type-display">-</span>
+            </div>
+
+            <div id="question-form">
+                <label for="question_prompt">
+                    Question Prompt *
+                    <input type="text" id="question_prompt" placeholder="e.g., What do you see in this image?">
+                    <small>The question or instruction for the user</small>
+                </label>
+
+                <div id="text-field" style="display: none;">
+                    <label for="source_text">
+                        Source Text *
+                        <input type="text" id="source_text" placeholder="e.g., Hello, how are you?">
+                        <small>The text to be translated or transformed</small>
+                    </label>
+                </div>
+
+                <div id="media-url-field" style="display: none;">
+                    <label for="media_url">
+                        <span id="media-url-label">Media URL</span>
+                        <input type="url" id="media_url" placeholder="https://...">
+                        <small id="media-url-help">URL to the image/audio file</small>
+                    </label>
+
+                    <div style="text-align: center; margin: 10px 0;">
+                        <em>— OR —</em>
+                    </div>
+
+                    <label for="media_file">
+                        Upload <span id="upload-type-label">File</span>
+                        <input type="file" id="media_file" accept="image/*,audio/*" onchange="handleFileUpload()">
+                        <small>Upload a file instead of providing a URL</small>
+                    </label>
+                    <div id="upload-progress" style="display: none; margin-top: 10px;">
+                        <progress id="upload-progress-bar"></progress>
+                        <small id="upload-status">Uploading...</small>
+                    </div>
+                </div>
+
+                <button type="button" onclick="addQuestion()" class="secondary">Add Question</button>
+            </div>
+
+            <ul id="questions-list" style="list-style: none; padding: 0; margin-top: 15px;"></ul>
+
+            <div id="bulk-upload-hint" style="margin-top: 15px; padding: 10px; background-color: var(--ins-color); border-radius: 4px; display: none;">
+                <strong>Bulk Upload (Coming Soon):</strong> In the future, you'll be able to upload a CSV file with multiple questions and media URLs.
+            </div>
+        </fieldset>
+
+        <label for="response_type" id="response-type-field" style="display: none;">
+            Response Type *
+            <select id="response_type" name="response_type">
+                <option value="either">Text or Voice</option>
+                <option value="text">Text Only</option>
+                <option value="voice">Voice Only</option>
+            </select>
+        </label>
+
+        <button type="submit" id="submit-button" disabled>Create Campaign</button>
+    </form>
+</section>
+
+<script>
+    let questions = [];
+    let currentInputType = '';
+    let currentOutputType = '';
+
+    function updateQuestionForm() {
+        const inputType = document.getElementById('input_type').value;
+        const outputType = document.getElementById('output_type').value;
+        const questionsSection = document.getElementById('questions-section');
+        const mediaUrlField = document.getElementById('media-url-field');
+        const typeDisplay = document.getElementById('type-display');
+        const submitButton = document.getElementById('submit-button');
+
+        currentInputType = inputType;
+        currentOutputType = outputType;
+
+        if (inputType && outputType) {
+            questionsSection.style.display = 'block';
+            typeDisplay.textContent = `${capitalize(inputType)} → ${capitalize(outputType)}`;
+
+            const textField = document.getElementById('text-field');
+
+            // Show appropriate input field based on input type
+            if (inputType === 'text') {
+                textField.style.display = 'block';
+                mediaUrlField.style.display = 'none';
+            } else if (inputType === 'image' || inputType === 'audio') {
+                textField.style.display = 'none';
+                mediaUrlField.style.display = 'block';
+                document.getElementById('media-url-label').textContent =
+                    `${capitalize(inputType)} URL`;
+                document.getElementById('media-url-help').textContent =
+                    `URL to the ${inputType} file`;
+                document.getElementById('upload-type-label').textContent =
+                    capitalize(inputType);
+
+                // Set file input accept attribute
+                const fileInput = document.getElementById('media_file');
+                if (inputType === 'image') {
+                    fileInput.accept = 'image/*';
+                } else if (inputType === 'audio') {
+                    fileInput.accept = 'audio/*';
+                }
+            } else {
+                textField.style.display = 'none';
+                mediaUrlField.style.display = 'none';
+            }
+
+            // Set response type based on output type
+            const responseType = document.getElementById('response_type');
+            if (outputType === 'audio') {
+                responseType.value = 'voice';
+            } else if (outputType === 'text') {
+                responseType.value = 'text';
+            }
+
+            submitButton.disabled = false;
+        } else {
+            questionsSection.style.display = 'none';
+            submitButton.disabled = true;
+        }
+    }
+
+    function addQuestion() {
+        const prompt = document.getElementById('question_prompt').value.trim();
+        const sourceText = document.getElementById('source_text').value.trim();
+        const mediaUrl = document.getElementById('media_url').value.trim();
+
+        if (!prompt) {
+            alert('Please enter a question prompt');
+            return;
+        }
+
+        // Validate input based on type
+        if (currentInputType === 'text' && !sourceText) {
+            alert('Please provide source text');
+            return;
+        } else if ((currentInputType === 'image' || currentInputType === 'audio') && !mediaUrl) {
+            alert(`Please provide a ${currentInputType} URL or upload a file`);
+            return;
+        }
+
+        const question = {
+            prompt: prompt
+        };
+
+        if (currentInputType === 'text') {
+            question.text = sourceText;
+        } else if (currentInputType === 'image') {
+            question.image_url = mediaUrl;
+        } else if (currentInputType === 'audio') {
+            question.audio_url = mediaUrl;
+        }
+
+        questions.push(question);
+        updateQuestionsList();
+
+        // Clear form
+        document.getElementById('question_prompt').value = '';
+        document.getElementById('source_text').value = '';
+        document.getElementById('media_url').value = '';
+
+        // Show bulk upload hint after first question
+        if (questions.length === 1) {
+            document.getElementById('bulk-upload-hint').style.display = 'block';
+        }
+    }
+
+    function removeQuestion(index) {
+        questions.splice(index, 1);
+        updateQuestionsList();
+    }
+
+    function updateQuestionsList() {
+        const list = document.getElementById('questions-list');
+        list.innerHTML = '';
+
+        questions.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.style.cssText = 'padding: 10px; margin-bottom: 5px; background: var(--code-background-color); border-radius: 4px; display: flex; justify-content: space-between; align-items: center;';
+
+            let mediaInfo = '';
+            if (item.text) {
+                mediaInfo = `<br><small>Text: "${item.text}"</small>`;
+            } else if (item.image_url) {
+                mediaInfo = `<br><small>Image: ${truncateUrl(item.image_url)}</small>`;
+            } else if (item.audio_url) {
+                mediaInfo = `<br><small>Audio: ${truncateUrl(item.audio_url)}</small>`;
+            }
+
+            li.innerHTML = `
+                <div>
+                    <strong>Q${index + 1}:</strong> ${item.prompt}
+                    ${mediaInfo}
+                </div>
+                <button type="button" onclick="removeQuestion(${index})" class="contrast" style="padding: 5px 10px; font-size: 0.8em;">Remove</button>
+            `;
+            list.appendChild(li);
+        });
+
+        document.getElementById('questions_data_json').value = JSON.stringify(questions);
+    }
+
+    function capitalize(str) {
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function truncateUrl(url) {
+        return url.length > 50 ? url.substring(0, 50) + '...' : url;
+    }
+
+    async function handleFileUpload() {
+        const fileInput = document.getElementById('media_file');
+        const file = fileInput.files[0];
+
+        if (!file) return;
+
+        // Show progress
+        const progressDiv = document.getElementById('upload-progress');
+        const progressBar = document.getElementById('upload-progress-bar');
+        const statusText = document.getElementById('upload-status');
+
+        progressDiv.style.display = 'block';
+        progressBar.removeAttribute('value'); // Indeterminate progress
+        statusText.textContent = 'Uploading...';
+
+        try {
+            // Create form data
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('project_id', {{ project_id }});
+
+            // Upload file
+            const response = await fetch('/linguist/campaigns/upload-media', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Set the URL in the media_url field
+                document.getElementById('media_url').value = result.url;
+                statusText.textContent = `✓ Uploaded: ${result.filename}`;
+                statusText.style.color = 'green';
+
+                // Clear file input
+                fileInput.value = '';
+
+                // Hide progress after 2 seconds
+                setTimeout(() => {
+                    progressDiv.style.display = 'none';
+                    statusText.style.color = '';
+                }, 2000);
+            } else {
+                throw new Error(result.error || 'Upload failed');
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            statusText.textContent = `✗ Upload failed: ${error.message}`;
+            statusText.style.color = 'red';
+            progressBar.style.display = 'none';
+        }
+    }
+
+    document.getElementById('genericForm').addEventListener('submit', function(e) {
+        if (questions.length === 0) {
+            e.preventDefault();
+            alert('Please add at least one question');
+            return;
+        }
+
+        const inputType = document.getElementById('input_type').value;
+        const outputType = document.getElementById('output_type').value;
+
+        if (!inputType || !outputType) {
+            e.preventDefault();
+            alert('Please select both input and output types');
+            return;
+        }
+    });
+
+    // Allow Enter key to add question
+    document.getElementById('question_prompt').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addQuestion();
+        }
+    });
+</script>
+{% endblock %}

@@ -376,3 +376,371 @@ async def example_tame_campaign():
         response_type="either"
     )
     return result
+
+
+async def create_ordered_campaign(
+    project_id: int,
+    campaign_name: str,
+    questions_list: List[str],  # List of question prompts in order
+    response_type: str = "either",
+    active: bool = True
+) -> Dict[str, Any]:
+    """
+    Create an Ordered/Sequential campaign
+
+    Questions are presented in a specific order and must be answered sequentially.
+    Useful for structured interviews, training sessions, or progressive elicitation.
+
+    Args:
+        project_id: ID of the project
+        campaign_name: Name for this campaign
+        questions_list: List of question prompts (order matters!)
+        response_type: Expected response type
+        active: Whether campaign is active
+
+    Returns:
+        Campaign object with generated questions
+    """
+
+    if not questions_list or len(questions_list) == 0:
+        raise ValueError("Questions list cannot be empty")
+
+    # Get the ordered_sequential template
+    template_result = supabaseClient.table('question_templates').select('*').eq(
+        'template_type', 'ordered_sequential'
+    ).execute()
+
+    if not template_result.data:
+        raise ValueError("Ordered sequential template not found. Run campaign_templates.sql first.")
+
+    template = template_result.data[0]
+
+    # Create campaign
+    campaign_data = {
+        'project_id': project_id,
+        'name': campaign_name,
+        'description': f"Ordered campaign with {len(questions_list)} sequential questions",
+        'active': active,
+        'created_at': datetime.utcnow().isoformat()
+    }
+
+    campaign_result = supabaseClient.table('campaigns').insert(campaign_data).execute()
+    campaign = campaign_result.data[0] if campaign_result.data else None
+
+    if not campaign:
+        raise ValueError("Failed to create campaign")
+
+    campaign_id = campaign['id']
+
+    # Get project languages
+    project = supabaseClient.table('projects').select('ui_language, target_language').eq(
+        'id', project_id
+    ).execute()
+
+    if not project.data:
+        raise ValueError(f"Project {project_id} not found")
+
+    ui_lang = project.data[0]['ui_language']
+    target_lang = project.data[0]['target_language']
+
+    # Create questions in order
+    questions = []
+    total_questions = len(questions_list)
+
+    for idx, prompt in enumerate(questions_list):
+        if not prompt or not prompt.strip():
+            raise ValueError(f"Question {idx + 1} is empty")
+
+        # Format question text from template
+        question_text = template['template_text'].format(prompt=prompt.strip())
+
+        # Create question with order metadata
+        question_data = {
+            'input_text': question_text,
+            'input_language': ui_lang,
+            'output_language': target_lang,
+            'template_id': template['id'],
+            'project_id': project_id,
+            'created_at': datetime.utcnow().isoformat(),
+            'metadata': {
+                'prompt': prompt.strip(),
+                'question_number': idx + 1,
+                'total_questions': total_questions,
+                'enforce_order': True
+            }
+        }
+
+        question_result = supabaseClient.table('questions').insert(question_data).execute()
+
+        if question_result.data:
+            question = question_result.data[0]
+            questions.append(question)
+
+            # Link question to campaign with sequence_order
+            campaign_question_data = {
+                'campaign_id': campaign_id,
+                'question_id': question['id'],
+                'sequence_order': idx + 1  # 1-indexed for clarity
+            }
+            supabaseClient.table('campaign_questions').insert(campaign_question_data).execute()
+
+    return {
+        'campaign': campaign,
+        'questions_created': len(questions),
+        'questions': questions
+    }
+
+
+async def create_text_to_text_campaign(
+    project_id: int,
+    campaign_name: str,
+    questions_data: List[Dict[str, str]],  # [{"prompt": "Translate this", "text": "Hello"}]
+    response_type: str = "text",
+    active: bool = True
+) -> Dict[str, Any]:
+    """
+    Create a Text to Text campaign
+
+    Useful for translation, paraphrasing, or text transformation tasks.
+    """
+    # Reuse ordered_sequential template
+    template_result = supabaseClient.table('question_templates').select('*').eq(
+        'template_type', 'ordered_sequential'
+    ).execute()
+
+    if not template_result.data:
+        raise ValueError("Template not found. Run campaign_templates.sql first.")
+
+    template = template_result.data[0]
+
+    campaign_data = {
+        'project_id': project_id,
+        'name': campaign_name,
+        'description': f"Text to text campaign with {len(questions_data)} question(s)",
+        'active': active,
+        'created_at': datetime.utcnow().isoformat()
+    }
+
+    campaign_result = supabaseClient.table('campaigns').insert(campaign_data).execute()
+    campaign = campaign_result.data[0] if campaign_result.data else None
+
+    if not campaign:
+        raise ValueError("Failed to create campaign")
+
+    campaign_id = campaign['id']
+
+    project = supabaseClient.table('projects').select('ui_language, target_language').eq(
+        'id', project_id
+    ).execute()
+
+    if not project.data:
+        raise ValueError(f"Project {project_id} not found")
+
+    ui_lang = project.data[0]['ui_language']
+    target_lang = project.data[0]['target_language']
+
+    questions = []
+    for idx, q_data in enumerate(questions_data):
+        prompt = q_data.get('prompt', '')
+        text = q_data.get('text', '')
+
+        if not prompt:
+            raise ValueError(f"Question {idx + 1} missing 'prompt' field")
+
+        full_prompt = f"{prompt}: {text}" if text else prompt
+        question_text = template['template_text'].format(prompt=full_prompt)
+
+        question_data = {
+            'input_text': question_text,
+            'input_language': ui_lang,
+            'output_language': target_lang,
+            'template_id': template['id'],
+            'project_id': project_id,
+            'created_at': datetime.utcnow().isoformat(),
+            'metadata': {'source_text': text, 'prompt': prompt}
+        }
+
+        question_result = supabaseClient.table('questions').insert(question_data).execute()
+
+        if question_result.data:
+            question = question_result.data[0]
+            questions.append(question)
+
+            campaign_question_data = {
+                'campaign_id': campaign_id,
+                'question_id': question['id'],
+                'sequence_order': idx + 1
+            }
+            supabaseClient.table('campaign_questions').insert(campaign_question_data).execute()
+
+    return {
+        'campaign': campaign,
+        'questions_created': len(questions),
+        'questions': questions
+    }
+
+
+async def create_image_to_text_campaign(
+    project_id: int,
+    campaign_name: str,
+    questions_data: List[Dict[str, str]],
+    response_type: str = "text",
+    active: bool = True
+) -> Dict[str, Any]:
+    """Create an Image to Text campaign"""
+    template_result = supabaseClient.table('question_templates').select('*').eq(
+        'template_type', 'image_to_text'
+    ).execute()
+
+    if not template_result.data:
+        raise ValueError("Image to text template not found. Run campaign_templates.sql first.")
+
+    template = template_result.data[0]
+
+    campaign_data = {
+        'project_id': project_id,
+        'name': campaign_name,
+        'description': f"Image to text campaign with {len(questions_data)} question(s)",
+        'active': active,
+        'created_at': datetime.utcnow().isoformat()
+    }
+
+    campaign_result = supabaseClient.table('campaigns').insert(campaign_data).execute()
+    campaign = campaign_result.data[0] if campaign_result.data else None
+
+    if not campaign:
+        raise ValueError("Failed to create campaign")
+
+    campaign_id = campaign['id']
+
+    project = supabaseClient.table('projects').select('ui_language, target_language').eq(
+        'id', project_id
+    ).execute()
+
+    if not project.data:
+        raise ValueError(f"Project {project_id} not found")
+
+    ui_lang = project.data[0]['ui_language']
+    target_lang = project.data[0]['target_language']
+
+    questions = []
+    for idx, q_data in enumerate(questions_data):
+        prompt = q_data.get('prompt', '')
+        image_url = q_data.get('image_url', '')
+
+        if not prompt:
+            raise ValueError(f"Question {idx + 1} missing 'prompt' field")
+
+        question_text = template['template_text'].format(prompt=prompt)
+
+        question_data = {
+            'input_text': question_text,
+            'input_language': ui_lang,
+            'output_language': target_lang,
+            'template_id': template['id'],
+            'project_id': project_id,
+            'created_at': datetime.utcnow().isoformat(),
+            'metadata': {'image_url': image_url, 'prompt': prompt}
+        }
+
+        question_result = supabaseClient.table('questions').insert(question_data).execute()
+
+        if question_result.data:
+            question = question_result.data[0]
+            questions.append(question)
+
+            campaign_question_data = {
+                'campaign_id': campaign_id,
+                'question_id': question['id'],
+                'sequence_order': idx + 1
+            }
+            supabaseClient.table('campaign_questions').insert(campaign_question_data).execute()
+
+    return {
+        'campaign': campaign,
+        'questions_created': len(questions),
+        'questions': questions
+    }
+
+
+async def create_audio_to_audio_campaign(
+    project_id: int,
+    campaign_name: str,
+    questions_data: List[Dict[str, str]],
+    response_type: str = "voice",
+    active: bool = True
+) -> Dict[str, Any]:
+    """Create an Audio to Audio campaign"""
+    template_result = supabaseClient.table('question_templates').select('*').eq(
+        'template_type', 'audio_to_audio'
+    ).execute()
+
+    if not template_result.data:
+        raise ValueError("Audio to audio template not found. Run campaign_templates.sql first.")
+
+    template = template_result.data[0]
+
+    campaign_data = {
+        'project_id': project_id,
+        'name': campaign_name,
+        'description': f"Audio to audio campaign with {len(questions_data)} question(s)",
+        'active': active,
+        'created_at': datetime.utcnow().isoformat()
+    }
+
+    campaign_result = supabaseClient.table('campaigns').insert(campaign_data).execute()
+    campaign = campaign_result.data[0] if campaign_result.data else None
+
+    if not campaign:
+        raise ValueError("Failed to create campaign")
+
+    campaign_id = campaign['id']
+
+    project = supabaseClient.table('projects').select('ui_language, target_language').eq(
+        'id', project_id
+    ).execute()
+
+    if not project.data:
+        raise ValueError(f"Project {project_id} not found")
+
+    ui_lang = project.data[0]['ui_language']
+    target_lang = project.data[0]['target_language']
+
+    questions = []
+    for idx, q_data in enumerate(questions_data):
+        prompt = q_data.get('prompt', '')
+        audio_url = q_data.get('audio_url', '')
+
+        if not prompt:
+            raise ValueError(f"Question {idx + 1} missing 'prompt' field")
+
+        question_text = template['template_text'].format(prompt=prompt)
+
+        question_data = {
+            'input_text': question_text,
+            'input_language': ui_lang,
+            'output_language': target_lang,
+            'template_id': template['id'],
+            'project_id': project_id,
+            'created_at': datetime.utcnow().isoformat(),
+            'metadata': {'audio_url': audio_url, 'prompt': prompt}
+        }
+
+        question_result = supabaseClient.table('questions').insert(question_data).execute()
+
+        if question_result.data:
+            question = question_result.data[0]
+            questions.append(question)
+
+            campaign_question_data = {
+                'campaign_id': campaign_id,
+                'question_id': question['id'],
+                'sequence_order': idx + 1
+            }
+            supabaseClient.table('campaign_questions').insert(campaign_question_data).execute()
+
+    return {
+        'campaign': campaign,
+        'questions_created': len(questions),
+        'questions': questions
+    }
