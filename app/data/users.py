@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from data.supabase_client import supabaseClient
 from gloo.cred import get_auth_headers
 from gloo.chat import send_message
+from shared.constants import GLOO_FALLBACK_MSG
 
 
 CHAT_API_URL = "https://platform.ai.gloo.com/ai/v1/chat"
@@ -59,7 +60,7 @@ async def send_gloo_message_for_whatsapp_user(whatsapp_id: str, message: str):
 
 def _get_fallback_response(message: str) -> str:
     """Fallback when API fails"""
-    error_msg = "Sorry, I'm having trouble connecting to the service right now."
+    error_msg = GLOO_FALLBACK_MSG
     if len(message.lower()) % 2:
         error_msg += " Here's a verse about hope: 'For I know the plans I have for you, declares the Lord, plans for welfare and not for evil, to give you a future and a hope.' - Jeremiah 29:11"
     else:

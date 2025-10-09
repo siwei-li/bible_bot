@@ -1,7 +1,7 @@
 import re
 from typing import TYPE_CHECKING
 from session.session_manager import SessionManager, UserState
-from data.supabase_client import store_response, update_user_progress
+from data.supabase_client import store_response, update_user_progress, update_transcription_in_db
 from data.users import send_gloo_message_for_whatsapp_user
 
 
@@ -129,8 +129,7 @@ class MessageHandlers:
                 )
                 return
             final_text = corrected_text
-            # TODO
-            from data.supabase_client import update_transcription_in_db
+            # REVIEW
             await update_transcription_in_db(pending["audio_id"], final_text, "user_corrected")
             await wa_client.send_message(to=user_id, text=f"✏️ Updated to: \"{final_text}\"")
         elif text.lower() == "correct":
@@ -332,7 +331,7 @@ class MessageHandlers:
         if text.lower() == session["break_word"].lower():
             welcome_message = (
                 f"🎉 Welcome back!\n\n"
-                f"📊 Previous session: {session.get('questions_answered_this_session', 0)} questions\n\n" #FIXME - 
+                # f"📊 Previous session: {session.get('questions_answered_this_session', 0)} questions\n\n" #FIXME - 
                 f"Continue your previous domain or select a new one.\n\n"
             )
             await self.domain_handler.send_domain_list(

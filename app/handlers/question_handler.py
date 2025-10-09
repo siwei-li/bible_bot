@@ -4,6 +4,7 @@ from session.session_manager import SessionManager, UserState
 from services.questions_service import QuestionsService
 from data.supabase_client import get_user_progress, insert_question, supabaseClient
 from data.users import send_gloo_message_for_whatsapp_user
+from shared.constants import GLOO_FALLBACK_MSG
 
 
 class QuestionHandler:
@@ -34,8 +35,8 @@ class QuestionHandler:
                     whatsapp_id=user_id,
                     message=prompt
                 )
-                if not gloo_response:
-                    raise ValueError("No response from Gloo API")
+                if not gloo_response or gloo_response.startswith(GLOO_FALLBACK_MSG):
+                    raise ValueError("Gloo API connection error")
 
                 new_question = await insert_question(gloo_response, 'bot', '')
                 if not new_question:
