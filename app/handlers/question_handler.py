@@ -54,9 +54,9 @@ class QuestionHandler:
         await wa_client.send_message(
             to=user_id,
             text=(
-                f"📝 Next question:\n\n"
+                f"📝 Question:\n\n"
                 f"{next_question['text']}\n\n"
-                f"Progress: {len(answered_ids) + 1}/{total_count}"
+                f"Progress: {len(answered_ids) + 1}/{total_count}" #LATER
             )
         )
     

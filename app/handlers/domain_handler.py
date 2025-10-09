@@ -1,5 +1,6 @@
 from session.session_manager import SessionManager, UserState
 from services.questions_service import QuestionsService
+from handlers.question_handler import QuestionHandler
 
 
 class DomainHandler:
@@ -39,6 +40,9 @@ class DomainHandler:
                     # f"Reply 'next' to get your first question."
                 )
             )
+
+            question_handler = QuestionHandler(self.session_manager, self.questions_service)
+            await question_handler.give_next_question(wa_client, user_id)
 
         else:
             await self.show_available_domains(wa_client, user_id)
