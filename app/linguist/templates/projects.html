@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Projects{% endblock %}
+
+{% block content %}
+<h1>Projects</h1>
+
+{% if error %}
+<article style="background-color: var(--del-color);">
+    <p>Error: {{ error }}</p>
+</article>
+{% endif %}
+
+<section>
+    <h2>All Projects</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>UI Language</th>
+                <th>Target Language</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody id="projects-table">
+            {% for project in projects %}
+            <tr>
+                <td>{{ project.id }}</td>
+                <td>{{ project.title }}</td>
+                <td>{{ project.ui_language }}</td>
+                <td>{{ project.target_language }}</td>
+                <td>{{ project.created_at[:10] if project.created_at else 'N/A' }}</td>
+            </tr>
+            {% endfor %}
+            {% if not projects %}
+            <tr>
+                <td colspan="5">No projects found. Create one below!</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</section>
+
+<section>
+    <h2>Create New Project</h2>
+    <form hx-post="/linguist/projects" hx-target="#projects-table" hx-swap="beforeend">
+        <label for="title">
+            Project Title
+            <input type="text" id="title" name="title" placeholder="e.g., Swahili Documentation" required>
+        </label>
+
+        <label for="ui_language">
+            UI Language (ISO 639 code)
+            <input type="text" id="ui_language" name="ui_language" placeholder="e.g., en" required maxlength="10">
+        </label>
+
+        <label for="target_language">
+            Target Language (ISO 639 code)
+            <input type="text" id="target_language" name="target_language" placeholder="e.g., sw" required maxlength="10">
+        </label>
+
+        <button type="submit">Create Project</button>
+    </form>
+</section>
+{% endblock %}

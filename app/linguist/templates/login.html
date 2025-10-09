@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Linguist Admin</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+</head>
+<body>
+    <main class="container">
+        <article style="max-width: 500px; margin: 100px auto;">
+            <h1>Linguist Login</h1>
+
+            {% if success %}
+            <article style="background-color: var(--ins-color);">
+                <p>{{ success }}</p>
+            </article>
+            {% endif %}
+
+            {% if error %}
+            <article style="background-color: var(--del-color);">
+                <p>{{ error }}</p>
+            </article>
+            {% endif %}
+
+            <form method="POST" action="/linguist/login">
+                <label for="email">
+                    Email
+                    <input type="email" id="email" name="email" placeholder="linguist@example.com" required>
+                </label>
+
+                <label for="password">
+                    Password
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                </label>
+
+                <button type="submit">Login</button>
+            </form>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <small>— OR —</small>
+            </div>
+
+            <button onclick="loginWithGoogle()" style="width: 100%;">
+                Continue with Google
+            </button>
+
+            <p style="text-align: center; margin-top: 20px;">
+                Don't have an account? <a href="/linguist/signup">Sign up</a>
+            </p>
+        </article>
+    </main>
+
+    <script>
+        async function loginWithGoogle() {
+            try {
+                const response = await fetch('/linguist/auth/google');
+                const data = await response.json();
+                if (data.url) {
+                    window.location.href = data.url;
+                }
+            } catch (error) {
+                console.error('Google login error:', error);
+                alert('Failed to initiate Google login');
+            }
+        }
+    </script>
+</body>
+</html>

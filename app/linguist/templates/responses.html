@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Responses{% endblock %}
+
+{% block content %}
+<h1>Responses</h1>
+
+{% if error %}
+<article style="background-color: var(--del-color);">
+    <p>Error: {{ error }}</p>
+</article>
+{% endif %}
+
+<section>
+    <h2>Recent Responses (Last 100)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>User ID</th>
+                <th>Question</th>
+                <th>Response Text</th>
+                <th>Type</th>
+                <th>Quality</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for response in responses %}
+            <tr>
+                <td>{{ response.id }}</td>
+                <td>{{ response.user_id }}</td>
+                <td>{{ response.Question.input_text[:50] if response.Question and response.Question.input_text else 'N/A' }}...</td>
+                <td>{{ response.response_text[:50] if response.response_text else 'N/A' }}...</td>
+                <td>{{ response.response_type }}</td>
+                <td>
+                    {% if response.quality_flag == 'good' %}
+                    <span style="color: green;">✓ Good</span>
+                    {% elif response.quality_flag == 'needs_review' %}
+                    <span style="color: orange;">⚠ Review</span>
+                    {% elif response.quality_flag == 'invalid' %}
+                    <span style="color: red;">✗ Invalid</span>
+                    {% else %}
+                    <span style="color: gray;">⊘ Unreviewed</span>
+                    {% endif %}
+                </td>
+                <td>{{ response.created_at[:10] if response.created_at else 'N/A' }}</td>
+            </tr>
+            {% endfor %}
+            {% if not responses %}
+            <tr>
+                <td colspan="7">No responses found.</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</section>
+
+<section>
+    <h2>Filter Options</h2>
+    <p><em>Coming soon - filter by project, campaign, quality flag, date range</em></p>
+</section>
+{% endblock %}
