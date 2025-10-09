@@ -65,7 +65,3 @@ CREATE TABLE questions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-INSERT INTO questions (id, domain, text) VALUES 
-(1, 'kinship', 'What do you call your father''s brother?'),
-(2, 'kinship', 'How do you address your mother''s sister?'),
-(3, 'kinship', 'What term do you use for your grandparent''s sibling?');

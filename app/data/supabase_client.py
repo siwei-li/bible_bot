@@ -45,7 +45,7 @@ async def get_user_progress(user_id: str):
     """Get user progress from database"""
     try:
         result = (
-            supabase.table('user_progress')
+            supabaseClient.table('user_progress')
             .select('*')
             .eq('user_id', user_id)
             .execute()
@@ -60,7 +60,7 @@ async def get_user_progress(user_id: str):
                 'answered_questions': [],
                 'created_at': datetime.utcnow().isoformat()
             }
-            supabase.table('user_progress').insert(new_progress).execute()
+            supabaseClient.table('user_progress').insert(new_progress).execute()
             return new_progress
     except Exception as e:
         print(f"Database error: {e}")
@@ -86,7 +86,7 @@ async def update_user_progress(
             updates['answered_questions'] = answered_list
         
         (
-            supabase.table('user_progress')
+            supabaseClient.table('user_progress')
             .update(updates)
             .eq('user_id', user_id)
             .execute()
@@ -126,7 +126,7 @@ def store_user_metadata(whatsapp_id: str, profile_name: str = None):
             user_data['profile_name'] = profile_name
             
         # Upsert user data
-        result = supabase.table('user_progress').upsert(user_data).execute()
+        result = supabaseClient.table('user_progress').upsert(user_data).execute()
         return result.data
         
     except Exception as e:
