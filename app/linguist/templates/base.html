@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linguist Admin - {% block title %}Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+    <nav class="container-fluid">
+        <ul>
+            <li><strong>Linguist Admin</strong></li>
+        </ul>
+        <ul>
+            <li><a href="/linguist/projects">Projects</a></li>
+            <li><a href="/linguist/campaigns">Campaigns</a></li>
+            <li><a href="/linguist/questions">Questions</a></li>
+            <li><a href="/linguist/responses">Responses</a></li>
+            {% if user %}
+            <li><small>{{ user.email }}</small></li>
+            <li><a href="/linguist/logout">Logout</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="container-fluid">
+        <small>Linguist Admin UI - WhatsApp Bot Management</small>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Questions{% endblock %}
+
+{% block content %}
+<h1>Questions</h1>
+
+<section>
+    <h2>All Questions</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Question Text</th>
+                <th>Input Lang</th>
+                <th>Output Lang</th>
+                <th>Project</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for question in questions %}
+            <tr>
+                <td>{{ question.id }}</td>
+                <td>{{ question.input_text[:80] }}</td>
+                <td>{{ question.input_language }}</td>
+                <td>{{ question.output_language }}</td>
+                <td>{{ question.project_id }}</td>
+                <td>{{ question.created_at[:10] if question.created_at else 'N/A' }}</td>
+            </tr>
+            {% endfor %}
+            {% if not questions %}
+            <tr>
+                <td colspan="6">No questions found.</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</section>
+
+<section>
+    <h2>Create New Question</h2>
+    <p><em>Coming soon - question creation form</em></p>
+</section>
+{% endblock %}

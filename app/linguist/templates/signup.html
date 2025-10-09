@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - Linguist Admin</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+</head>
+<body>
+    <main class="container">
+        <article style="max-width: 500px; margin: 100px auto;">
+            <h1>Create Linguist Account</h1>
+
+            {% if error %}
+            <article style="background-color: var(--del-color);">
+                <p>{{ error }}</p>
+            </article>
+            {% endif %}
+
+            <form method="POST" action="/linguist/signup">
+                <label for="email">
+                    Email
+                    <input type="email" id="email" name="email" placeholder="linguist@example.com" required>
+                </label>
+
+                <label for="password">
+                    Password
+                    <input type="password" id="password" name="password" placeholder="Choose a password" required minlength="6">
+                </label>
+
+                <label for="phone">
+                    WhatsApp Phone Number (optional)
+                    <input type="tel" id="phone" name="phone" placeholder="+1234567890">
+                    <small>Include country code, e.g., +1234567890</small>
+                </label>
+
+                <button type="submit">Sign Up</button>
+            </form>
+
+            <p style="text-align: center; margin-top: 20px;">
+                Already have an account? <a href="/linguist/login">Login</a>
+            </p>
+        </article>
+    </main>
+</body>
+</html>

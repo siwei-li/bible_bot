@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Create Bible Campaign{% endblock %}
+
+{% block content %}
+<article>
+    <header>
+        <a href="/linguist/projects/{{ project_id }}">← Back to Project</a>
+        <h1>Create Bible Translation Campaign</h1>
+        <p>Generate questions for translating Bible verses</p>
+    </header>
+
+    {% if error %}
+    <div role="alert" style="background-color: var(--del-color);">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <div role="alert" style="background-color: var(--ins-color);">
+        <strong>How it works:</strong> Select a range of verses, and the system will create a question for each verse asking community members to translate it. The bot will detect if they ask questions vs. provide translations.
+    </div>
+</article>
+
+<section>
+    <form method="POST" action="/linguist/campaigns/create/bible">
+        <input type="hidden" name="project_id" value="{{ project_id }}">
+
+        <label for="campaign_name">
+            Campaign Name *
+            <input type="text" id="campaign_name" name="campaign_name" required
+                   placeholder="e.g., Genesis Creation Story">
+        </label>
+
+        <label for="book">
+            Bible Book *
+            <input type="text" id="book" name="book" required
+                   placeholder="e.g., Genesis, John, Psalms">
+            <small>Enter the English name of the book</small>
+        </label>
+
+        <div role="group">
+            <label for="start_chapter">
+                Start Chapter *
+                <input type="number" id="start_chapter" name="start_chapter" required
+                       placeholder="1" min="1">
+            </label>
+
+            <label for="start_verse">
+                Start Verse *
+                <input type="number" id="start_verse" name="start_verse" required
+                       placeholder="1" min="1">
+            </label>
+        </div>
+
+        <div role="group">
+            <label for="end_chapter">
+                End Chapter *
+                <input type="number" id="end_chapter" name="end_chapter" required
+                       placeholder="1" min="1">
+            </label>
+
+            <label for="end_verse">
+                End Verse *
+                <input type="number" id="end_verse" name="end_verse" required
+                       placeholder="31" min="1">
+            </label>
+        </div>
+
+        <label for="translation">
+            Bible Translation
+            <select id="translation" name="translation">
+                <option value="BSB">Berean Standard Bible (BSB)</option>
+                <option value="KJV">King James Version (KJV)</option>
+                <option value="WEB">World English Bible (WEB)</option>
+                <option value="NET">New English Translation (NET)</option>
+                <option value="LSB">Literal Standard Bible (LSB)</option>
+            </select>
+            <small>Powered by <a href="https://bible.helloao.org" target="_blank">bible.helloao.org</a></small>
+        </label>
+
+        <label for="response_type">
+            Response Type *
+            <select id="response_type" name="response_type">
+                <option value="either">Text or Voice</option>
+                <option value="text">Text Only</option>
+                <option value="voice">Voice Only</option>
+            </select>
+        </label>
+
+        <button type="submit">Create Campaign</button>
+    </form>
+</section>
+{% endblock %}
