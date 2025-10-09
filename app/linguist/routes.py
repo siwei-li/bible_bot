@@ -34,7 +34,8 @@ async def login(request: Request, response: Response, email: str = Form(...), pa
             value=result["session"].access_token,
             httponly=True,
             max_age=result["session"].expires_in,
-            samesite="lax"
+            samesite="lax",
+            secure=True
         )
         return resp
     else:
