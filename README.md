@@ -82,6 +82,9 @@ An example question from Gloo:
 - MessageHandlers routes different states to corresponding handlers (domains, questions, consent)
 
 ### Screenshots
+![Screenshot 1](demo/Screenshot1.png)
+![Screenshot 2](demo/Screenshot2.png)
+![Screenshot 3](demo/Screenshot3.png)
 
 #### Try it out
 If you'd like to test out the code yourself: 
