@@ -428,7 +428,7 @@ async def upload_media_file(
     except Exception as e:
         print(f"Error uploading file: {e}")
         return JSONResponse(
-            {"error": f"Upload failed: {str(e)}"},
+            {"error": "An internal error occurred while uploading the file."},
             status_code=500
         )
 
