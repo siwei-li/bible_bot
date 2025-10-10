@@ -8,6 +8,12 @@ from data.supabase_client import supabaseClient
 from datetime import datetime
 
 
+def mask_phone(phone: str) -> str:
+    # Mask all but last 2 digits
+    if len(phone) > 2:
+        return "*" * (len(phone) - 2) + phone[-2:]
+    return "*" * len(phone)
+
 async def add_recipients_to_campaign(campaign_id: int, phone_numbers: List[str]) -> Dict[str, Any]:
     """
     Add phone numbers to a campaign
@@ -116,7 +122,7 @@ Please respond with your answer."""
 
             # Send via WhatsApp if client provided
             if wa_client:
-                print(phone)
+                # Removed logging of phone number to prevent exposure of sensitive data
                 await wa_client.send_message(
                     to=phone,
                     text=message_text
