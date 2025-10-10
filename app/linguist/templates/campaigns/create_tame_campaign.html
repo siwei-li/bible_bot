@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Create TAME Campaign{% endblock %}
+
+{% block content %}
+<article>
+    <header>
+        <a href="/linguist/projects/{{ project_id }}">← Back to Project</a>
+        <h1>Create TAME Exploration Campaign</h1>
+        <p>Explore Tense, Aspect, Modality, and Evidentiality</p>
+    </header>
+
+    {% if error %}
+    <div role="alert" style="background-color: var(--del-color);">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <div role="alert" style="background-color: var(--ins-color);">
+        <strong>How it works:</strong> Add base sentences (e.g., "I walk", "She eats"), then select which TAME categories to explore. The system will generate questions asking community members to provide variations (past tense, habitual aspect, etc.).
+    </div>
+</article>
+
+<section>
+    <form method="POST" action="/linguist/campaigns/create/tame" id="tameForm">
+        <input type="hidden" name="project_id" value="{{ project_id }}">
+        <input type="hidden" name="base_sentences" id="base_sentences_json">
+
+        <label for="campaign_name">
+            Campaign Name *
+            <input type="text" id="campaign_name" name="campaign_name" required
+                   placeholder="e.g., Basic Verbs - Tense and Aspect">
+        </label>
+
+        <fieldset>
+            <legend>Base Sentences *</legend>
+            <div role="group">
+                <input type="text" id="new_sentence" placeholder="Sentence (e.g., I walk)">
+                <input type="text" id="new_gloss" placeholder="Gloss (optional, e.g., walk-1SG.PRS)">
+                <button type="button" onclick="addSentence()" class="secondary">Add</button>
+            </div>
+            <ul id="sentence-list" style="list-style: none; padding: 0; margin-top: 10px;"></ul>
+        </fieldset>
+
+        <fieldset>
+            <legend>TAME Categories * (Select at least one)</legend>
+            <label for="cat_tense">
+                <input type="checkbox" id="cat_tense" name="categories" value="tense" role="switch">
+                Tense (past, present, future)
+            </label>
+            <label for="cat_aspect">
+                <input type="checkbox" id="cat_aspect" name="categories" value="aspect" role="switch">
+                Aspect (perfective, habitual, etc.)
+            </label>
+            <label for="cat_modality">
+                <input type="checkbox" id="cat_modality" name="categories" value="modality" role="switch">
+                Modality (can, must, should)
+            </label>
+            <label for="cat_evidentiality">
+                <input type="checkbox" id="cat_evidentiality" name="categories" value="evidentiality" role="switch">
+                Evidentiality (saw, heard, inferred)
+            </label>
+        </fieldset>
+
+        <label for="response_type">
+            Response Type *
+            <select id="response_type" name="response_type">
+                <option value="either">Text or Voice</option>
+                <option value="text">Text Only</option>
+                <option value="voice">Voice Only</option>
+            </select>
+        </label>
+
+        <button type="button" onclick="previewQuestions()" class="secondary">Preview Questions</button>
+        <div id="preview-results" style="display: none; margin-top: 10px;"></div>
+
+        <button type="submit">Create Campaign</button>
+    </form>
+</section>
+
+<script>
+    let sentences = [];
+
+    function addSentence() {
+        const sentence = document.getElementById('new_sentence').value.trim();
+        const gloss = document.getElementById('new_gloss').value.trim();
+
+        if (!sentence) {
+            alert('Please enter a sentence');
+            return;
+        }
+
+        sentences.push({ sentence, gloss });
+        updateSentenceList();
+
+        document.getElementById('new_sentence').value = '';
+        document.getElementById('new_gloss').value = '';
+    }
+
+    function removeSentence(index) {
+        sentences.splice(index, 1);
+        updateSentenceList();
+    }
+
+    function updateSentenceList() {
+        const list = document.getElementById('sentence-list');
+        list.innerHTML = '';
+
+        sentences.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.style.cssText = 'padding: 10px; margin-bottom: 5px; background: var(--code-background-color); border-radius: 4px; display: flex; justify-content: space-between; align-items: center;';
+            li.innerHTML = `
+                <div>
+                    <strong>${item.sentence}</strong>
+                    ${item.gloss ? `<small style="margin-left: 10px;">(${item.gloss})</small>` : ''}
+                </div>
+                <button type="button" onclick="removeSentence(${index})" class="contrast" style="padding: 5px 10px; font-size: 0.8em;">Remove</button>
+            `;
+            list.appendChild(li);
+        });
+
+        document.getElementById('base_sentences_json').value = JSON.stringify(sentences);
+    }
+
+    async function previewQuestions() {
+        if (sentences.length === 0) {
+            alert('Please add at least one sentence');
+            return;
+        }
+
+        const categories = Array.from(document.querySelectorAll('input[name="categories"]:checked'))
+            .map(cb => cb.value);
+
+        if (categories.length === 0) {
+            alert('Please select at least one TAME category');
+            return;
+        }
+
+        const previewDiv = document.getElementById('preview-results');
+        previewDiv.innerHTML = '<p><em>Loading preview...</em></p>';
+        previewDiv.style.display = 'block';
+
+        try {
+            const response = await fetch(`/linguist/campaigns/preview/tame?categories=${categories.join(',')}&sentence=${encodeURIComponent(sentences[0].sentence)}`);
+            const data = await response.json();
+
+            if (data.success) {
+                const totalForAll = data.total_questions * sentences.length;
+                previewDiv.innerHTML = `
+                    <article style="background-color: var(--ins-color); padding: 15px;">
+                        <h4 style="margin-top: 0;">Total questions: ${totalForAll}</h4>
+                        <p><small>(${data.total_questions} per sentence × ${sentences.length} sentences)</small></p>
+                        <strong>Example questions for "${sentences[0].sentence}":</strong>
+                        <ul>
+                            ${data.questions.slice(0, 5).map(q =>
+                                `<li>${q.sample_question}</li>`
+                            ).join('')}
+                        </ul>
+                        ${data.questions.length > 5 ? `<p><small>...and ${data.questions.length - 5} more</small></p>` : ''}
+                    </article>
+                `;
+            } else {
+                previewDiv.innerHTML = `<article style="background-color: var(--del-color);">Error: ${data.error}</article>`;
+            }
+        } catch (error) {
+            previewDiv.innerHTML = `<article style="background-color: var(--del-color);">Error loading preview: ${error.message}</article>`;
+        }
+    }
+
+    document.getElementById('tameForm').addEventListener('submit', function(e) {
+        if (sentences.length === 0) {
+            e.preventDefault();
+            alert('Please add at least one sentence');
+            return;
+        }
+
+        const categories = document.querySelectorAll('input[name="categories"]:checked');
+        if (categories.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one TAME category');
+            return;
+        }
+    });
+
+    // Allow Enter key to add sentence
+    document.getElementById('new_sentence').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addSentence();
+        }
+    });
+    document.getElementById('new_gloss').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addSentence();
+        }
+    });
+</script>
+{% endblock %}

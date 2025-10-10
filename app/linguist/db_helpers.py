@@ -26,19 +26,32 @@ async def get_project_by_id(project_id: int) -> Optional[Dict[str, Any]]:
         print(f"Error fetching project: {e}")
         return None
 
-async def create_project(title: str, ui_language: str, target_language: str, created_by: Optional[int] = None) -> Dict[str, Any]:
-    """Insert new project into database"""
+async def create_project(title: str, ui_language: str, target_language: str, created_by: str) -> Dict[str, Any]:
+    """Insert new project into database and add creator as owner"""
     try:
         project_data = {
             'title': title,
             'ui_language': ui_language,
             'target_language': target_language,
-            'created_at': datetime.utcnow().isoformat()
+            'created_at': datetime.utcnow().isoformat(),
+            'created_by': created_by
         }
-        if created_by:
-            project_data['created_by'] = created_by
+
         result = supabaseClient.table('projects').insert(project_data).execute()
-        return result.data[0] if result.data else {}
+        project = result.data[0] if result.data else {}
+
+        # Add creator to project_members as owner
+        if project and isinstance(project, dict):
+            member_data = {
+                'user_id': created_by,
+                'project_id': project.get('id'),
+                'role': 'owner',
+                'joined_at': datetime.utcnow().isoformat()
+            }
+            supabaseClient.table('project_members').insert(member_data).execute()
+            print(f"Added user {created_by} as owner of project {project.get('id')}")
+
+        return project if isinstance(project, dict) else {}
     except Exception as e:
         print(f"Error creating project: {e}")
         raise e
@@ -90,23 +103,20 @@ async def get_all_responses() -> List[Dict[str, Any]]:
 async def create_campaign(
     name: str,
     project_id: int,
-    campaign_type: str,
-    active: bool = True,
-    file_data: Optional[Any] = None
+    description: Optional[str] = None,
+    active: bool = True
 ) -> Dict[str, Any]:
     """Insert new campaign into database"""
     try:
         campaign_data = {
             'name': name,
             'project_id': project_id,
-            'campaign_type': campaign_type,
             'active': active,
             'created_at': datetime.utcnow().isoformat()
         }
 
-        # Store file data as JSON if provided
-        if file_data:
-            campaign_data['file_data'] = file_data
+        if description:
+            campaign_data['description'] = description
 
         result = supabaseClient.table('campaigns').insert(campaign_data).execute()
         return result.data[0] if result.data else {}

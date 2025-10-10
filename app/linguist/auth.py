@@ -1,7 +1,7 @@
 from fastapi import Request, HTTPException, status
 from fastapi.responses import RedirectResponse
-"""from linguist.db_helpers import supabase"""
-from linguist.mock_db.mock_supabase import supabase
+from linguist.db_helpers import supabaseClient as supabase
+# from linguist.mock_db.mock_supabase import supabase
 from typing import Optional, Dict, Any
 import os
 
