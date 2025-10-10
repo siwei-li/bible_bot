@@ -16,7 +16,7 @@ class UserState(Enum):
 
 class SessionManager:
     def __init__(self):
-        self.user_sessions = {}
+        self.user_sessions = {} #LATER - persistent storage
         self.pending_transcriptions = {}
         self.pending_validations = {}
         self.break_words = ['sunrise', 'forest', 'river', 'mountain', 'ocean', 'bird', 'flower', 'star']

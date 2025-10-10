@@ -1,7 +1,7 @@
 import re
 from typing import TYPE_CHECKING
 from session.session_manager import SessionManager, UserState
-from data.supabase_client import store_response, update_user_progress
+from data.supabase_client import store_response, update_user_progress, update_transcription_in_db
 from data.users import send_gloo_message_for_whatsapp_user
 
 
@@ -129,8 +129,7 @@ class MessageHandlers:
                 )
                 return
             final_text = corrected_text
-            # TODO
-            from data.supabase_client import update_transcription_in_db
+            # REVIEW
             await update_transcription_in_db(pending["audio_id"], final_text, "user_corrected")
             await wa_client.send_message(to=user_id, text=f"✏️ Updated to: \"{final_text}\"")
         elif text.lower() == "correct":
@@ -175,7 +174,12 @@ class MessageHandlers:
                 message=validation_prompt
             )
 
-            if gloo_response.lower().strip() in ['valid', 'good', 'acceptable'] or 'valid' in gloo_response.lower():
+            score = 5
+            match = re.search(r"score[:\s]*([0-9]{1,2})\s*/\s*10", gloo_response, re.IGNORECASE)
+            if match:
+                score = int(match.group(1))
+
+            if score >= 7:
                 # Auto-approve: skip user validation and proceed directly
                 await wa_client.send_message(
                     to=user_id,
@@ -184,10 +188,6 @@ class MessageHandlers:
                         f"Moving on to the next question..."
                     )
                 )
-                score = 8
-                match = re.search(r"score[:\s]*([0-9]{1,2})\s*/\s*10", gloo_response, re.IGNORECASE)
-                if match:
-                    score = int(match.group(1))
 
                 await self._store_final_answer(user_id, text, "ai_validated", score)
                 await self._ask_continue_or_break(wa_client, user_id)
@@ -241,7 +241,7 @@ class MessageHandlers:
             score = 5
             await wa_client.send_message(to=user_id, text=f"✏️ Updated to: \"{final_text}\"")
         elif text.lower() in ("accept", 'ac'):
-            final_text = pending["validation_response"]
+            final_text = pending["original_text"]
             validation_type = "original_text"
             score = 10
             await wa_client.send_message(to=user_id, text="✅ Validation accepted!")
@@ -332,7 +332,7 @@ class MessageHandlers:
         if text.lower() == session["break_word"].lower():
             welcome_message = (
                 f"🎉 Welcome back!\n\n"
-                f"📊 Previous session: {session.get('questions_answered_this_session', 0)} questions\n\n" #FIXME - 
+                # f"📊 Previous session: {session.get('questions_answered_this_session', 0)} questions\n\n" #FIXME - 
                 f"Continue your previous domain or select a new one.\n\n"
             )
             await self.domain_handler.send_domain_list(

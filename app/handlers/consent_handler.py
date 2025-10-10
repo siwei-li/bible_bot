@@ -1,6 +1,6 @@
 from session.session_manager import SessionManager, UserState
 from handlers.domain_handler import DomainHandler
-from data.supabase_client import supabaseClient
+from data.supabase_client import supabaseClient, store_user_language
 from pywa.types import SectionList, Section, SectionRow
 
 
@@ -9,13 +9,14 @@ class ConsentHandler:
         self.session_manager = session_manager
         self.questions_service = questions_service
         self.language_options = [
+            {"code": "id", "name": "Indonesian"},
             {"code": "zh", "name": "Mandarin Chinese"},
              # African languages
             {"code": "ak", "name": "Akan"},
             {"code": "bm", "name": "Bambara"},
              # Asian/Pacific languages
             {"code": "km", "name": "Khmer"},
-            {"code": "lo", "name": "Lao"},
+            # {"code": "lo", "name": "Lao"},
             # Papua New Guinea/Pacific
             {"code": "tpi", "name": "Tok Pisin"},
             {"code": "ho", "name": "Hiri Motu"},
@@ -58,7 +59,7 @@ class ConsentHandler:
                         SectionRow(
                             title=d['name'],
                             callback_data=f'lang:{d["code"]}',
-                            description='For testing only (not a low-resource language)' if d['code']=='zh' else None,
+                            description='For testing only (not a low-resource language)' if d['code'] in ('zh', 'id') else None,
                         ) for d in self.language_options
                     ],
                 ),
@@ -82,7 +83,7 @@ class ConsentHandler:
                 user_id, 
                 prefix_message=f"✅ Thanks for picking {language_name}!\n"
             )
-            await supabaseClient.store_user_language(user_id, selected_language)
+            await store_user_language(user_id, selected_language)
             # await self.complete_onboarding(wa_client, user_id, selected_language["name"])
         else:
             await wa_client.send_message(

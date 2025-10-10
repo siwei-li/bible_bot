@@ -27,6 +27,8 @@ class DomainHandler:
             has_remaining_in_current = False
         
         available_domains = await self.questions_service.get_domains()
+        available_domains = [d for d in available_domains if d != '']
+        print(f"Available domains: {available_domains}, current: {current_domain}, has remaining: {has_remaining_in_current}")
         
         options = []
         # option_number = 1
@@ -71,7 +73,7 @@ class DomainHandler:
                 to=user_id,
                 text=(
                     f"✅ You've selected the '{domain}' domain.\n\n"
-                    "Let's get started!"
+                    "Let's get started! Picking a question for you...\n\n"
                 )
             )
             question_handler = QuestionHandler(self.session_manager, self.questions_service)

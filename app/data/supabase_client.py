@@ -138,3 +138,21 @@ async def store_user_language(user_id: str, language_code: str):
     ).execute()
     
     return response.data
+
+
+async def get_user_language(user_id: str):
+    """Retrieve user's language preference"""
+    try:
+        result = (
+            supabaseClient.table('user_progress')
+            .select('language_code')
+            .eq('user_id', user_id)
+            .execute()
+        )
+        if result.data and len(result.data) > 0:
+            return result.data[0].get('language_code')
+        return None
+    except Exception as e:
+        print(f"Error retrieving user language: {e}")
+        return None
+

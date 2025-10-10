@@ -3,11 +3,11 @@ services:
   whatsapp-bot:
     build: .
     ports:
-      - "5017:5017"
+      - "${LOCAL_PORT}:${LOCAL_PORT}"
     env_file:
       - .env
     environment:
-      - SUPABASE_URL=https://vnuoiurceynjukljokkp.supabase.co
+      - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
     restart: unless-stopped
