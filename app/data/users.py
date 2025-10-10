@@ -4,12 +4,13 @@ from concurrent.futures import ThreadPoolExecutor
 from data.supabase_client import supabaseClient
 from gloo.cred import get_auth_headers
 from gloo.chat import send_message
+from shared.constants import GLOO_FALLBACK_MSG
 
 
 CHAT_API_URL = "https://platform.ai.gloo.com/ai/v1/chat"
 
 
-def _get_or_create_gloo_chat_session(whatsapp_id: str) -> str:
+async def _get_or_create_gloo_chat_session(whatsapp_id: str) -> str:
     """Get existing chat session or create new one for WhatsApp user."""
 
     # Check if user already has a chat session
@@ -39,14 +40,9 @@ executor = ThreadPoolExecutor(max_workers=5)
 async def send_gloo_message_for_whatsapp_user(whatsapp_id: str, message: str):
     """Async wrapper around sync Gloo API calls"""
     try:
-        # Get chat_id in thread pool
+        chat_id = await _get_or_create_gloo_chat_session(whatsapp_id)
+
         loop = asyncio.get_event_loop()
-        chat_id = await loop.run_in_executor(
-            executor, 
-            _get_or_create_gloo_chat_session,
-            whatsapp_id
-        )
-        
         # Send message in thread pool
         response = await loop.run_in_executor(
             executor,
@@ -64,7 +60,7 @@ async def send_gloo_message_for_whatsapp_user(whatsapp_id: str, message: str):
 
 def _get_fallback_response(message: str) -> str:
     """Fallback when API fails"""
-    error_msg = "Sorry, I'm having trouble connecting to the service right now."
+    error_msg = GLOO_FALLBACK_MSG
     if len(message.lower()) % 2:
         error_msg += " Here's a verse about hope: 'For I know the plans I have for you, declares the Lord, plans for welfare and not for evil, to give you a future and a hope.' - Jeremiah 29:11"
     else:

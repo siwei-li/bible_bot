@@ -11,7 +11,8 @@ class QuestionsService:
         try:
             result = supabaseClient.table('questions').select('domain').execute()
             domains = list(set(row['domain'] for row in result.data))
-            return domains
+            print(f"Loaded domains: {domains}")
+            return [d for d in domains if d != '']
         except Exception as e:
             print(f"Error loading domains: {e}")
             return []

@@ -5,7 +5,8 @@ CREATE TABLE user_progress (
     domain TEXT,
     answered_questions INTEGER[],
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    language_code TEXT,
 );
 
 -- Create user_responses table
@@ -57,12 +58,12 @@ CREATE INDEX idx_user_chat_sessions_whatsapp_id ON user_chat_sessions(whatsapp_i
 
 -- Create questions table
 CREATE TABLE questions (
-    id INTEGER PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     domain TEXT NOT NULL,
     text TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 );
-
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS question_type TEXT DEFAULT 'flex';
 INSERT INTO questions (id, domain, text) VALUES 
 (1, 'kinship', 'What do you call your father''s brother?'),
 (2, 'kinship', 'How do you address your mother''s sister?'),
