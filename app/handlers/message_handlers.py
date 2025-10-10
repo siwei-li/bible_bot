@@ -174,7 +174,12 @@ class MessageHandlers:
                 message=validation_prompt
             )
 
-            if gloo_response.lower().strip() in ['valid', 'good', 'acceptable'] or 'valid' in gloo_response.lower():
+            score = 5
+            match = re.search(r"score[:\s]*([0-9]{1,2})\s*/\s*10", gloo_response, re.IGNORECASE)
+            if match:
+                score = int(match.group(1))
+
+            if score >= 7:
                 # Auto-approve: skip user validation and proceed directly
                 await wa_client.send_message(
                     to=user_id,
@@ -183,10 +188,6 @@ class MessageHandlers:
                         f"Moving on to the next question..."
                     )
                 )
-                score = 8
-                match = re.search(r"score[:\s]*([0-9]{1,2})\s*/\s*10", gloo_response, re.IGNORECASE)
-                if match:
-                    score = int(match.group(1))
 
                 await self._store_final_answer(user_id, text, "ai_validated", score)
                 await self._ask_continue_or_break(wa_client, user_id)
@@ -240,7 +241,7 @@ class MessageHandlers:
             score = 5
             await wa_client.send_message(to=user_id, text=f"✏️ Updated to: \"{final_text}\"")
         elif text.lower() in ("accept", 'ac'):
-            final_text = pending["validation_response"]
+            final_text = pending["original_text"]
             validation_type = "original_text"
             score = 10
             await wa_client.send_message(to=user_id, text="✅ Validation accepted!")
