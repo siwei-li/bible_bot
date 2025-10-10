@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Create Ordered Campaign{% endblock %}
+
+{% block content %}
+<article>
+    <header>
+        <a href="/linguist/projects/{{ project_id }}">← Back to Project</a>
+        <h1>Create Ordered Campaign</h1>
+        <p>Create a campaign with questions in a specific sequence</p>
+    </header>
+
+    {% if error %}
+    <div role="alert" style="background-color: var(--del-color);">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <div role="alert" style="background-color: var(--ins-color);">
+        <strong>How it works:</strong> Add questions that will be asked in order. Perfect for structured interviews, training sessions, or progressive elicitation. Users must answer questions sequentially.
+    </div>
+</article>
+
+<section>
+    <form method="POST" action="/linguist/campaigns/create/ordered" id="orderedForm">
+        <input type="hidden" name="project_id" value="{{ project_id }}">
+        <input type="hidden" name="questions_json" id="questions_json">
+
+        <label for="campaign_name">
+            Campaign Name *
+            <input type="text" id="campaign_name" name="campaign_name" required
+                   placeholder="e.g., Initial Interview Questions">
+        </label>
+
+        <fieldset>
+            <legend>Questions (in order) *</legend>
+            <small style="display: block; margin-bottom: 10px;">Questions will be asked in the order you add them</small>
+
+            <div role="group">
+                <input type="text" id="new_question" placeholder="Enter a question" style="flex-grow: 1;">
+                <button type="button" onclick="addQuestion()" class="secondary">Add</button>
+            </div>
+
+            <div id="questions-list" style="margin-top: 15px;"></div>
+
+            <small style="display: block; margin-top: 10px; opacity: 0.7;">
+                <strong>Tip:</strong> You can reorder questions by dragging them (drag & drop feature coming soon - for now, remove and re-add to reorder)
+            </small>
+        </fieldset>
+
+        <label for="response_type">
+            Response Type *
+            <select id="response_type" name="response_type">
+                <option value="either">Text or Voice</option>
+                <option value="text">Text Only</option>
+                <option value="voice">Voice Only</option>
+            </select>
+        </label>
+
+        <button type="submit">Create Campaign</button>
+    </form>
+</section>
+
+<script>
+    let questions = [];
+
+    function addQuestion() {
+        const input = document.getElementById('new_question');
+        const question = input.value.trim();
+
+        if (!question) {
+            alert('Please enter a question');
+            return;
+        }
+
+        questions.push(question);
+        updateQuestionsList();
+
+        // Clear input
+        input.value = '';
+        input.focus();
+    }
+
+    function removeQuestion(index) {
+        questions.splice(index, 1);
+        updateQuestionsList();
+    }
+
+    function moveQuestionUp(index) {
+        if (index === 0) return;
+        const temp = questions[index];
+        questions[index] = questions[index - 1];
+        questions[index - 1] = temp;
+        updateQuestionsList();
+    }
+
+    function moveQuestionDown(index) {
+        if (index === questions.length - 1) return;
+        const temp = questions[index];
+        questions[index] = questions[index + 1];
+        questions[index + 1] = temp;
+        updateQuestionsList();
+    }
+
+    function updateQuestionsList() {
+        const list = document.getElementById('questions-list');
+        list.innerHTML = '';
+
+        if (questions.length === 0) {
+            list.innerHTML = '<p style="opacity: 0.6;"><em>No questions added yet</em></p>';
+            document.getElementById('questions_json').value = '[]';
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.style.cssText = 'display: flex; flex-direction: column; gap: 8px;';
+
+        questions.forEach((q, index) => {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding: 12px; background: var(--code-background-color); border-radius: 4px; display: flex; align-items: center; gap: 10px;';
+
+            item.innerHTML = `
+                <strong style="min-width: 30px; opacity: 0.6;">${index + 1}.</strong>
+                <span style="flex-grow: 1;">${q}</span>
+                <div style="display: flex; gap: 5px;">
+                    ${index > 0 ? `<button type="button" onclick="moveQuestionUp(${index})" class="outline" style="padding: 5px 10px; font-size: 0.8em;">↑</button>` : ''}
+                    ${index < questions.length - 1 ? `<button type="button" onclick="moveQuestionDown(${index})" class="outline" style="padding: 5px 10px; font-size: 0.8em;">↓</button>` : ''}
+                    <button type="button" onclick="removeQuestion(${index})" class="contrast" style="padding: 5px 10px; font-size: 0.8em;">Remove</button>
+                </div>
+            `;
+
+            container.appendChild(item);
+        });
+
+        list.appendChild(container);
+
+        // Update hidden field
+        document.getElementById('questions_json').value = JSON.stringify(questions);
+    }
+
+    document.getElementById('orderedForm').addEventListener('submit', function(e) {
+        if (questions.length === 0) {
+            e.preventDefault();
+            alert('Please add at least one question');
+            return;
+        }
+    });
+
+    // Allow Enter key to add question
+    document.getElementById('new_question').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addQuestion();
+        }
+    });
+
+    // Initialize empty list
+    updateQuestionsList();
+</script>
+{% endblock %}

@@ -16,26 +16,45 @@
     <table>
         <thead>
             <tr>
-                <th>ID</th>
                 <th>Name</th>
                 <th>Project</th>
-                <th>Active</th>
+                <th>Status</th>
                 <th>Created</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody id="campaigns-table">
             {% for campaign in campaigns %}
             <tr>
-                <td>{{ campaign.id }}</td>
                 <td>{{ campaign.name }}</td>
-                <td>{{ campaign.Project.title if campaign.Project else 'N/A' }}</td>
-                <td>{{ '✓' if campaign.active else '✗' }}</td>
+                <td>{{ campaign.projects.title if campaign.projects else 'N/A' }}</td>
+                <td>
+                    {% if campaign.status == 'draft' %}
+                        📝 Draft
+                    {% elif campaign.status == 'ready' %}
+                        ✅ Ready
+                    {% elif campaign.status == 'active' %}
+                        🚀 Active
+                    {% else %}
+                        {{ '✓' if campaign.active else '✗' }}
+                    {% endif %}
+                </td>
                 <td>{{ campaign.created_at[:10] if campaign.created_at else 'N/A' }}</td>
+                <td>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <a href="/linguist/campaigns/{{ campaign.id }}/recipients" role="button" class="outline" style="padding: 0.25rem 0.75rem; margin: 0;">
+                            📱 Recipients
+                        </a>
+                        <a href="/linguist/campaigns/{{ campaign.id }}/questions" role="button" class="outline secondary" style="padding: 0.25rem 0.75rem; margin: 0;">
+                            📝 Questions
+                        </a>
+                    </div>
+                </td>
             </tr>
             {% endfor %}
             {% if not campaigns %}
             <tr>
-                <td colspan="5">No campaigns found.</td>
+                <td colspan="6">No campaigns found.</td>
             </tr>
             {% endif %}
         </tbody>
@@ -45,84 +64,58 @@
 <section>
     <h2>Create New Campaign</h2>
 
-    <form hx-post="/linguist/campaigns" hx-target="#campaigns-table" hx-swap="beforeend" hx-encoding="multipart/form-data">
-        <label for="campaign_name">
-            Campaign Name
-            <input type="text" id="campaign_name" name="campaign_name" placeholder="e.g., Genesis Translation Campaign" required>
-        </label>
+    <p>Choose a campaign type to get started:</p>
 
-        <label for="project_id">
-            Project
-            <select id="project_id" name="project_id" required>
-                <option value="">Select a project...</option>
-                {% for project in projects %}
-                <option value="{{ project.id }}">{{ project.title }}</option>
-                {% endfor %}
-            </select>
-        </label>
+    <label for="project_select">
+        Select Project *
+        <select id="project_select" required>
+            <option value="">-- Choose a project --</option>
+            {% for project in projects %}
+            <option value="{{ project.id }}">{{ project.title }}</option>
+            {% endfor %}
+        </select>
+    </label>
 
-        <label for="campaign_type">
-            Campaign Template
-            <select id="campaign_type" name="campaign_type" required>
-                <option value="">Select a template...</option>
-                <option value="verse_translation">Verse Translation</option>
-                <option value="books_of_bible">Books of Bible</option>
-                <option value="tame_elicitation">TAME Elicitation</option>
-                <option value="audio_audio">Audio-Audio</option>
-                <option value="text_audio">Text-Audio</option>
-                <option value="custom">Custom (upload file)</option>
-            </select>
-        </label>
-
-        <div id="file-upload-section" style="display: none;">
-            <label for="campaign_file">
-                Upload Campaign Data (CSV/JSON)
-                <input type="file" id="campaign_file" name="campaign_file" accept=".csv,.json">
-                <small>Upload a CSV or JSON file with your custom campaign data</small>
-            </label>
+    <div id="campaign-type-buttons" style="display: none; margin-top: 20px;">
+        <h3>Campaign Types</h3>
+        <div role="group" style="margin-bottom: 15px;">
+            <button type="button" onclick="createCampaign('bible')" class="outline">Bible Translation</button>
+            <button type="button" onclick="createCampaign('tame')" class="outline secondary">TAME Exploration</button>
+            <button type="button" onclick="createCampaign('ordered')" class="outline">Ordered Questions</button>
+            <button type="button" onclick="createCampaign('generic')" class="outline contrast">Custom (Image/Audio)</button>
         </div>
 
-        <label for="active">
-            <input type="checkbox" id="active" name="active" role="switch" checked>
-            Active
-        </label>
-
-        <button type="submit">Create Campaign</button>
-    </form>
+        <details>
+            <summary>About these campaign types</summary>
+            <ul>
+                <li><strong>Bible Translation:</strong> Generate questions for translating Bible verses from various translations</li>
+                <li><strong>TAME Exploration:</strong> Systematically document tense, aspect, modality, and evidentiality markers</li>
+                <li><strong>Ordered Questions:</strong> Create sequential questions for structured interviews or progressive elicitation</li>
+                <li><strong>Custom:</strong> Create image→text or audio→audio campaigns with custom prompts</li>
+            </ul>
+        </details>
+    </div>
 </section>
 
 <script>
-    // Handle campaign type changes
-    document.getElementById('campaign_type').addEventListener('change', function() {
-        const fileSection = document.getElementById('file-upload-section');
-        const fileInput = document.getElementById('campaign_file');
-        const projectSelect = document.getElementById('project_id');
+    const projectSelect = document.getElementById('project_select');
+    const campaignButtons = document.getElementById('campaign-type-buttons');
 
-        if (this.value === 'custom') {
-            fileSection.style.display = 'block';
-            fileInput.required = true;
+    projectSelect.addEventListener('change', function() {
+        if (this.value) {
+            campaignButtons.style.display = 'block';
         } else {
-            fileSection.style.display = 'none';
-            fileInput.required = false;
-        }
-
-        // Redirect to specialized forms for Bible and TAME campaigns
-        if ((this.value === 'verse_translation' || this.value === 'books_of_bible') && projectSelect.value) {
-            window.location.href = `/linguist/campaigns/create/bible?project_id=${projectSelect.value}`;
-        } else if (this.value === 'tame_elicitation' && projectSelect.value) {
-            window.location.href = `/linguist/campaigns/create/tame?project_id=${projectSelect.value}`;
+            campaignButtons.style.display = 'none';
         }
     });
 
-    // Also handle when project is selected after campaign type
-    document.getElementById('project_id').addEventListener('change', function() {
-        const campaignType = document.getElementById('campaign_type').value;
-
-        if ((campaignType === 'verse_translation' || campaignType === 'books_of_bible') && this.value) {
-            window.location.href = `/linguist/campaigns/create/bible?project_id=${this.value}`;
-        } else if (campaignType === 'tame_elicitation' && this.value) {
-            window.location.href = `/linguist/campaigns/create/tame?project_id=${this.value}`;
+    function createCampaign(type) {
+        const projectId = projectSelect.value;
+        if (!projectId) {
+            alert('Please select a project first');
+            return;
         }
-    });
+        window.location.href = `/linguist/campaigns/create/${type}?project_id=${projectId}`;
+    }
 </script>
 {% endblock %}

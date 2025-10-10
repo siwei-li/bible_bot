@@ -11,12 +11,19 @@
 </article>
 {% endif %}
 
+{% if projects|length == 1 %}
+<script>
+    // Auto-redirect to the single project
+    window.location.href = "/linguist/projects/{{ projects[0].id }}";
+</script>
+{% endif %}
+
+{% if projects|length > 1 %}
 <section>
     <h2>All Projects</h2>
     <table>
         <thead>
             <tr>
-                <th>ID</th>
                 <th>Title</th>
                 <th>UI Language</th>
                 <th>Target Language</th>
@@ -26,21 +33,24 @@
         <tbody id="projects-table">
             {% for project in projects %}
             <tr>
-                <td>{{ project.id }}</td>
                 <td><a href="/linguist/projects/{{ project.id }}">{{ project.title }}</a></td>
                 <td>{{ project.ui_language }}</td>
                 <td>{{ project.target_language }}</td>
                 <td>{{ project.created_at[:10] if project.created_at else 'N/A' }}</td>
             </tr>
             {% endfor %}
-            {% if not projects %}
-            <tr>
-                <td colspan="5">No projects found. Create one below!</td>
-            </tr>
-            {% endif %}
         </tbody>
     </table>
 </section>
+{% endif %}
+
+{% if not projects %}
+<section>
+    <article style="background-color: var(--ins-color);">
+        <p><strong>Welcome!</strong> Get started by creating your first project below.</p>
+    </article>
+</section>
+{% endif %}
 
 <section>
     <h2>Create New Project</h2>

@@ -5,8 +5,7 @@ from dotenv import load_dotenv
 from pywa_async import WhatsApp
 from pywa.types import CallbackSelection
 from openai import OpenAI
-from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 app_dir = os.path.dirname(os.path.abspath(__file__))
@@ -37,13 +36,12 @@ logging.getLogger().setLevel(logging.INFO)
 load_dotenv()
 
 WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN')
-openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-if not openai_client.api_key:
-    raise ValueError("Set OPENAI_API_KEY in .env file")
+# openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+# if not openai_client.api_key:
+#     raise ValueError("Set OPENAI_API_KEY in .env file")
 
 audio_handler = AudioHandler(
     whatsapp_token=WHATSAPP_TOKEN,
-    openai_client=openai_client
 )
 
 session_manager = SessionManager()
@@ -144,6 +142,14 @@ async def handle_message(wa_client, msg):
             text="Sorry, something went wrong. Please try again."
         )
 
+from linguist.routes import router as linguist_router
+from linguist.campaign_routes import router as campaign_router
+
+# Make WhatsApp client available to campaign routes
+fastapi_app.state.wa_client = wa
+
+fastapi_app.include_router(linguist_router)
+fastapi_app.include_router(campaign_router)
 
 if __name__ == "__main__":
     import uvicorn

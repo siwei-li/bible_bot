@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Recipients - {{ campaign.name }}{% endblock %}
+
+{% block content %}
+<h1>📱 Manage Recipients</h1>
+<h2>{{ campaign.name }}</h2>
+
+{% if campaign.description %}
+<p>{{ campaign.description }}</p>
+{% endif %}
+
+<article>
+    <header>
+        <strong>Campaign Status:</strong>
+        <mark>{{ campaign.status or 'draft' }}</mark>
+    </header>
+
+    <h3>Add Phone Numbers</h3>
+    <form method="POST" action="/linguist/campaigns/{{ campaign.id }}/recipients/add">
+        <label for="phone_numbers">
+            Phone Numbers
+            <small>Enter one per line or comma-separated. Include country code (e.g., +1234567890)</small>
+        </label>
+        <textarea
+            id="phone_numbers"
+            name="phone_numbers"
+            rows="5"
+            placeholder="+1234567890&#10;+9876543210&#10;+1122334455"
+            required
+        ></textarea>
+        <button type="submit">Add Recipients</button>
+    </form>
+</article>
+
+<article>
+    <header>
+        <h3>Recipients ({{ recipients|length }})</h3>
+        {% if recipients|length > 0 and campaign.status == 'draft' %}
+        <button
+            onclick="startCampaign()"
+            style="background-color: green;"
+        >
+            🚀 Start Campaign
+        </button>
+        {% endif %}
+    </header>
+
+    {% if recipients|length == 0 %}
+    <p><em>No recipients added yet. Add phone numbers above to get started.</em></p>
+    {% else %}
+    <table role="grid">
+        <thead>
+            <tr>
+                <th>Phone Number</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for recipient in recipients %}
+            <tr>
+                <td>{{ recipient.phone_number }}</td>
+                <td>
+                    {% if recipient.status == 'pending' %}
+                        ⏳ Pending
+                    {% elif recipient.status == 'active' %}
+                        ✅ Active
+                    {% elif recipient.status == 'completed' %}
+                        🎉 Completed
+                    {% else %}
+                        {{ recipient.status }}
+                    {% endif %}
+                </td>
+                <td>
+                    <form
+                        method="POST"
+                        action="/linguist/campaigns/{{ campaign.id }}/recipients/remove"
+                        style="margin: 0;"
+                        onsubmit="return confirm('Remove this recipient?')"
+                    >
+                        <input type="hidden" name="phone_number" value="{{ recipient.phone_number }}">
+                        <button type="submit" class="secondary outline" style="padding: 0.25rem 0.5rem;">
+                            Remove
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</article>
+
+<a href="/linguist/campaigns" role="button" class="secondary">← Back to Campaigns</a>
+
+<script>
+async function startCampaign() {
+    if (!confirm('Start this campaign? WhatsApp messages will be sent to all recipients.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/linguist/campaigns/{{ campaign.id }}/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert(result.message);
+            window.location.reload();
+        } else {
+            alert('Error: ' + result.error);
+        }
+    } catch (error) {
+        alert('Error starting campaign: ' + error.message);
+    }
+}
+</script>
+
+{% if request.query_params.get('success') %}
+<script>
+    alert('Success!');
+</script>
+{% endif %}
+
+{% if request.query_params.get('error') %}
+<script>
+    alert('Error: {{ request.query_params.get("error") }}');
+</script>
+{% endif %}
+
+{% endblock %}
