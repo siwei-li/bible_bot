@@ -12,6 +12,7 @@ import json
 import uuid
 from datetime import datetime
 
+import logging
 from linguist import auth
 from data.supabase_client import supabaseClient
 from services.campaign_generator import (
@@ -543,9 +544,10 @@ async def start_campaign_endpoint(request: Request, campaign_id: int):
         })
 
     except Exception as e:
+        logging.exception(f"Failed to start campaign {campaign_id}:")
         return JSONResponse({
             "success": False,
-            "error": str(e)
+            "error": "An internal error has occurred."
         }, status_code=500)
 
 
